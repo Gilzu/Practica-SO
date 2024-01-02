@@ -1,11 +1,12 @@
+#ifndef ESTRUCTURAS_H
+#define ESTRUCTURAS_H
 
 // PCB
-typedef struct {
+typedef struct PCB {
     int pid;
     int vidaT;
     // Otros campos por implementar
 } PCB;
-
 
 // Process queue
 typedef struct Queue {
@@ -14,14 +15,29 @@ typedef struct Queue {
     int numProcesos;
 } Queue;
 
+// Thread
+typedef struct Thread{
+    PCB *pcb;
+    int tid;
+} Thread;
 
-// Machine que representa las CPUs, cores e hilos hardware del sistema (parámetro configurable).
-typedef struct 
-{
-    int cores;
-    int hilos;
-    double frecuencia;
-    // Otros campos por implementar
+// Core
+typedef struct Core {
+    int numThreads;
+    Thread *threads;
+} Core;
 
-}Machine;
+// CPU
+typedef struct CPU {
+    int numCores;
+    Core *cores;
+} CPU;
+
+// Machine
+typedef struct Machine {
+    int numCPUs;
+    CPU *cpus;
+} Machine;
+
+#endif // ESTRUCTURAS_H
 
