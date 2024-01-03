@@ -5,20 +5,31 @@
 typedef struct PCB {
     int pid;
     int vidaT;
-    // Otros campos por implementar
+    int estado;
+    int tiempoEjecucion;
 } PCB;
+
+// PCBNode
+typedef struct PCBNode {
+    PCB *pcb;
+    struct PCBNode *sig;
+} PCBNode;
 
 // Process queue
 typedef struct Queue {
-    PCB *pcb;
-    struct Queue *sig;
+    PCBNode *head;
+    PCBNode *tail;
     int numProcesos;
+    int quantum;
+    int prioridad;
 } Queue;
 
 // Thread
 typedef struct Thread{
     PCB *pcb;
     int tid;
+    int estado;
+    int tEjecucion;
 } Thread;
 
 // Core

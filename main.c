@@ -40,15 +40,18 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
             // Inicializar Hilos
             for(int k = 0; k < numHilos; k++){
                 machine->cpus[i].cores[j].threads[k].tid = k;
+                machine->cpus[i].cores[j].threads[k].estado = 0;
+                machine->cpus[i].cores[j].threads[k].pcb = NULL;
+                machine->cpus[i].cores[j].threads[k].tEjecucion = 0;
             }
         }
     }
 
-    // Cola de procesos
     colaProcesos = (Queue *)malloc(sizeof(Queue));
-    colaProcesos->pcb = NULL;
-    colaProcesos->sig = NULL;
+    colaProcesos->head = NULL;
+    colaProcesos->tail = NULL;
     colaProcesos->numProcesos = 0;
+    colaProcesos->quantum = 2;
 
     // Inicializar variables
     tiempoSistema = 0;

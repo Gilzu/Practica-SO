@@ -18,7 +18,6 @@ void* timer(void *arg){
     while (1)
     {
         done++;
-        printf("El timer ha aumentado done\n");
         pthread_cond_signal(&cond_clock);
         pthread_cond_wait(&cond_timer, &mutex);
         pthread_mutex_unlock(&mutex);
