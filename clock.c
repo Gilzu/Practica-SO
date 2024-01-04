@@ -40,7 +40,7 @@ void* reloj(void *arg){
         printf("#############################################\n");
         printf("Tiempo del sistema: %d segundos\n", tiempoSistema);
         pthread_cond_broadcast(&cond_timer);
-        printf("Tick del temporizador\n");
+        //printf("Tick del temporizador\n");
         pthread_mutex_unlock(&mutex);
     }
 }

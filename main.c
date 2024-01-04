@@ -11,7 +11,8 @@
 
 // Variables globales
 Machine *machine;
-Queue *colaProcesos;
+//Queue *colaProcesos;
+Queue *priorityQueues[3];
 pthread_mutex_t mutex;
 pthread_cond_t cond_clock;
 pthread_cond_t cond_timer;
@@ -47,11 +48,15 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
         }
     }
 
-    colaProcesos = (Queue *)malloc(sizeof(Queue));
-    colaProcesos->head = NULL;
-    colaProcesos->tail = NULL;
-    colaProcesos->numProcesos = 0;
-    colaProcesos->quantum = 2;
+    // Inicializar priorityQueues
+    for(int i = 0; i < 3; i++){
+        priorityQueues[i] = (Queue *)malloc(sizeof(Queue));
+        priorityQueues[i]->head = NULL;
+        priorityQueues[i]->tail = NULL;
+        priorityQueues[i]->numProcesos = 0;
+        priorityQueues[i]->quantum = 2*(i+1);
+        priorityQueues[i]->prioridad = i + 1;
+    }
 
     // Inicializar variables
     tiempoSistema = 0;
@@ -110,7 +115,9 @@ int main(int argc, char *argv[]){
     
     // Liberar memoria
     free(machine);
-    free(colaProcesos);
+    for(int i = 0; i < 3; i++){
+        free(priorityQueues[i]);
+    }
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond_clock);
     pthread_cond_destroy(&cond_timer);

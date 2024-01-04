@@ -7,6 +7,7 @@ typedef struct PCB {
     int vidaT;
     int estado;
     int tiempoEjecucion;
+    int prioridad;
 } PCB;
 
 // PCBNode

@@ -3,9 +3,9 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "Estructuras.h"
-#define MAX_PROCESOS 5 
+#define MAX_PROCESOS 15 
 
-extern Queue *colaProcesos;
+extern Queue *priorityQueues[3];
 extern pthread_mutex_t mutex;
 extern pthread_cond_t cond_timer;
 
@@ -48,13 +48,16 @@ PCB* desencolarProceso(Queue *colaProcesos){
 
 }
 
-void imprimirCola(Queue *colaProcesos){
-    PCBNode *aux = colaProcesos->head;
-    while(aux != NULL){
-        printf("%d ", aux->pcb->pid);
-        aux = aux->sig;
+void imprimirColas(){
+    printf("Cola de procesos:\n");
+    for(int i = 0; i < 3; i++){
+        printf("Cola %d:\n", i+1);
+        PCBNode *aux = priorityQueues[i]->head;
+        while(aux != NULL){
+            printf("Proceso %d\n", aux->pcb->pid);
+            aux = aux->sig;
+        }
     }
-    printf("\n");
 }
 
 void* processGenerator(void *arg){
@@ -70,20 +73,23 @@ void* processGenerator(void *arg){
             // Generar PCBs
             PCB *pcb = (PCB *)malloc(sizeof(PCB));
             pcb->pid = rand() % 100 + 1;
-            pcb->vidaT = rand() % 20 + 1;
+            pcb->vidaT = rand() % 10 + 1;
             pcb->tiempoEjecucion = 0;
             pcb->estado = 0;
+            // valores entre 1 y 3
+            pcb->prioridad = rand() % 3 + 1;
 
-            // Meter el proceso en la cola de procesos "cola"
             procesosCreados++;
-            encolarProceso(pcb, colaProcesos);
-            printf("ProcessGenerator: Proceso %d encolado en la cola\n", pcb->pid);
-            imprimirCola(colaProcesos);
+
+            // Asignar PCB a una cola de prioridad
+            encolarProceso(pcb, priorityQueues[pcb->prioridad - 1]);
+            printf("ProcessGenerator: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
+            imprimirColas();
         }
         else
         {
-            imprimirCola(colaProcesos);
             printf("ProcessGenerator: No se pueden crear más procesos\n");
+            imprimirColas();
         }
         pthread_mutex_unlock(&mutex);
     }

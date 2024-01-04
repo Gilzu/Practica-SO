@@ -3,10 +3,16 @@
 #include "Estructuras.h"
 #include <stdbool.h>
 
-void* scheduler(void* arg);
-void roundRobin(void *arg);
-void asignarHilo(PCB *pcb);
-void liberarHilos();
+void imprimirEstadoHilos();
 bool hilosDisponibles(void *arg);
+void asignarHilo(PCB *pcb);
+int interrumpirProcesos(int prioridad);
+bool hilosConProcesosMenorPrioridad(int prioridad);
+void comprobarInterrupcionHilos();
+void liberarHilos();
+void roundRobin(void *arg);
+void* scheduler(void* arg);
+
+
 
 #endif // SCHEDULER_H

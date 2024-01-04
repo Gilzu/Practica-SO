@@ -4,9 +4,8 @@
 
 
 void* processGenerator(void* arg);
-void insertarProceso(PCB* pcb);
 PCB* desencolarProceso(Queue* colaProcesos);
 void encolarProceso(PCB* pcb, Queue* colaProcesos);
-void imprimirCola(Queue* colaProcesos);
+void imprimirColas(void *arg);
 
 #endif // PROCESSGENERATOR_H
