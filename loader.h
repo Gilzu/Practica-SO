@@ -1,11 +1,11 @@
-#ifndef PROCESSGENERATOR_H
-#define PROCESSGENERATOR_H
+#ifndef LOADER_H
+#define LOADER_H
 #include "Estructuras.h"
 
 
-void* processGenerator(void* arg);
+void* loader(void* arg);
 PCB* desencolarProceso(Queue* colaProcesos);
 void encolarProceso(PCB* pcb, Queue* colaProcesos);
 void imprimirColas(void *arg);
 
-#endif // PROCESSGENERATOR_H
+#endif // LOADER_H

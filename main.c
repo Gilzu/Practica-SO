@@ -6,12 +6,12 @@
 #include "Estructuras.h"
 #include "clock.h"
 #include "scheduler.h"
-#include "processGenerator.h"
+#include "loader.h"
 #include "timer.h"
 
 // Variables globales
 Machine *machine;
-//Queue *colaProcesos;
+MemoriaFisica *memoriaFisica;
 Queue *priorityQueues[3];
 pthread_mutex_t mutex;
 pthread_cond_t cond_clock;
@@ -19,8 +19,9 @@ pthread_cond_t cond_timer;
 int done;
 int periodoTimer;
 int tiempoSistema;
+char* pathFichero;
 
-void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
+void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *path){
     // Inicializar mutex y variables de condición
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond_clock, NULL);
@@ -44,9 +45,30 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
                 machine->cpus[i].cores[j].threads[k].estado = 0;
                 machine->cpus[i].cores[j].threads[k].pcb = NULL;
                 machine->cpus[i].cores[j].threads[k].tEjecucion = 0;
+                machine->cpus[i].cores[j].threads[k].PC = 0;
+                machine->cpus[i].cores[j].threads[k].IR = 0;
+                machine->cpus[i].cores[j].threads[k].PTBR = NULL;
+                // Inicializar registros
+                for(int l = 0; l < NUM_REGISTROS; l++){
+                    machine->cpus[i].cores[j].threads[k].registros[l] = 0;
+                }
+                machine->cpus[i].cores[j].threads[k].mmu.TLB = (TLB *)malloc(sizeof(TLB));
+                machine->cpus[i].cores[j].threads[k].mmu.TLB->numeroPagina = 0;
+                machine->cpus[i].cores[j].threads[k].mmu.TLB->marco = 0;
             }
         }
     }
+
+    // Inicializar memeoria y reservar espacio para espacio Kernel y tabla de páginas
+    memoriaFisica = (MemoriaFisica *)malloc(sizeof(MemoriaFisica));
+    for (int i = 0; i < TAM_MEMORIA; i++)
+    {
+        memoriaFisica->memoria[i] = 0;
+    }
+    memoriaFisica->primeraDireccionLibreKernel = 0;
+    memoriaFisica->primeraDireccionLibre = TAM_KERNEL;
+    
+
 
     // Inicializar priorityQueues
     for(int i = 0; i < 3; i++){
@@ -61,6 +83,7 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
     // Inicializar variables
     tiempoSistema = 0;
     done = 0;
+    pathFichero = path;
 
     // Periodo de tick del timer
     periodoTimer = periodo;
@@ -74,10 +97,10 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo){
 }
 
 void comprobarArgumentos(int argc, char *argv[]){
-    if (argc != 5)
+    if (argc != 6)
     {
         printf("Error en los argumentos\n");
-        printf("Uso: ./main <numero de CPUs> <numero de cores> <numero de hilos por core> <periodo de ticks de interrupción>\n");
+        printf("Uso: ./main <numero de CPUs> <numero de cores> <numero de hilos por core> <periodo de ticks de interrupción> <path de la carpeta que contiene los ELF>\n");
         exit(-1);
     }
     if (atoi(argv[1]) < 1 || atoi(argv[2]) < 1 || atoi(argv[3]) < 1 || atoi(argv[4]) < 1)
@@ -86,9 +109,17 @@ void comprobarArgumentos(int argc, char *argv[]){
         printf("Todos los argumentos deben ser naturales mayores que 0\n");
         exit(-1);
     }
+    // comprobar que el quinto argumento es path
+    /*
+    if (argv[5][0] != '/')
+    {
+        printf("Error en los argumentos\n");
+        printf("El quinto argumento debe ser un path\n");
+        exit(-1);
+    }*/
 
     // Inicializar las estructuras de datos
-    inicializar(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]));
+    inicializar(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), argv[5]);
 }
 
 int main(int argc, char *argv[]){
@@ -99,25 +130,26 @@ int main(int argc, char *argv[]){
     // Crear los hilos de ejecución
     pthread_t hiloClock;
     pthread_t hiloScheduler;
-    pthread_t hiloProcessGenerator;
+    pthread_t hiloLoader;
     pthread_t hiloTimer;
 
     pthread_create(&hiloClock, NULL, &reloj, NULL);
     pthread_create(&hiloTimer, NULL, &timer, NULL);
     pthread_create(&hiloScheduler, NULL, &scheduler, NULL);
-    pthread_create(&hiloProcessGenerator, NULL, &processGenerator, NULL);
+    pthread_create(&hiloLoader, NULL, &loader, NULL);
 
     // Esperar a que los hilos terminen
     pthread_join(hiloClock, NULL);
     pthread_join(hiloTimer, NULL);
     pthread_join(hiloScheduler, NULL);
-    pthread_join(hiloProcessGenerator, NULL);
+    pthread_join(hiloLoader, NULL);
     
     // Liberar memoria
     free(machine);
     for(int i = 0; i < 3; i++){
         free(priorityQueues[i]);
     }
+    free(memoriaFisica);
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond_clock);
     pthread_cond_destroy(&cond_timer);

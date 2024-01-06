@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "Estructuras.h"
-#include "processGenerator.h"
+#include "loader.h"
 #include <stdbool.h>
 
 extern pthread_mutex_t mutex;
@@ -184,10 +184,10 @@ void* scheduler(void *arg){
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond_timer, &mutex);
         printf("scheduler activado\n");
-        liberarHilos();
-        roundRobin(NULL);
-        imprimirColas(NULL);
-        imprimirEstadoHilos();
+        //liberarHilos();
+        //roundRobin(NULL);
+        //imprimirColas(NULL);
+        //imprimirEstadoHilos();
         pthread_mutex_unlock(&mutex);
 
     }
