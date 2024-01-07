@@ -5,12 +5,17 @@
 #include <string.h>
 #include <stdint.h> 
 #include "Estructuras.h"
+#include <dirent.h>     
+#include <sys/stat.h>   
+#include <stdbool.h> 
+#define NUM_ELF_MAX 50
 
 extern Queue *priorityQueues[3];
 extern pthread_mutex_t mutex;
 extern pthread_cond_t cond_timer;
 extern MemoriaFisica *memoriaFisica;
-extern char* pathFichero;
+extern char* pathDirectorio;
+char *nombresFicheros[NUM_ELF_MAX];
 
 
 void encolarProceso(PCB *pcb, Queue *colaProcesos){
@@ -64,83 +69,6 @@ void imprimirColas(){
     }
 }
 
-void interpretarNumeroHexadecimal(char *linea, char *numeroFinal){
-    char numeroString[3];
-    if(linea[0] >= 'A' && linea[0] <= 'F'){
-        int numero = linea[0] - 'A' + 10; // Convertir de hexadecimal a decimal
-        sprintf(numeroString, "%d", numero); // Convertir de int a cadena
-    } else {
-        numeroString[0] = linea[0];
-        numeroString[1] = '\0';
-    }
-    strcat(numeroFinal, numeroString);
-}
-
-// Función que interpreta una instrucción en hexadecimal
-void interpretarInstruccion(char *linea, char *instruccionFinal){
-    char primerCaracter = linea[0];
-    switch (primerCaracter)
-    {
-    case '0':
-        strcpy(instruccionFinal, "ld");
-        break;
-    case '1':
-        strcpy(instruccionFinal, "st");
-        break;
-    case '2':
-        strcpy(instruccionFinal, "add");
-        break;
-    case 'F':
-        strcpy(instruccionFinal, "exit");
-        return;
-    default:
-        strcpy(instruccionFinal, "");
-        break;
-    }
-    
-    // Obtener el segundo caracter de la instrucción
-    // este será un número del 0 al 15 indicando el registro
-    if(strstr(instruccionFinal, "add") != NULL){
-        char registroString[20] = ""; // Inicializar la cadena
-        for (int i = 0; i < 3; i++)
-        {
-            strcat(registroString, "r"); // Agregar espacio antes de los registros
-            interpretarNumeroHexadecimal(&linea[i+1], registroString);
-            strcat(registroString, " "); // Agregar espacio entre registros
-        }
-
-        strcat(instruccionFinal, " "); // Agregar espacio antes de los registros
-        strcat(instruccionFinal, registroString); // Copiar el resultado final
-        return;
-    }else{
-        // Si no es una instrucción 'add', solo interpretar el segundo caracter
-        strcat(instruccionFinal, " ");
-        strcat(instruccionFinal, "r");
-        interpretarNumeroHexadecimal(&linea[1], instruccionFinal);
-    }
-
-    // si se llega hasta aquí, la instrucción es ld o st y los siguientes caracteres son la dirección
-    // el formato de la dirección es 0x000040 por ejemplo o 00002C por poner otro ejemplo (6 caracteres, 24 bits)
-    char direccion[20] = "";
-    char hexadecimal[2];
-    for (int i = 2; i < 8; i++)
-    {   if(i == 7 && linea[i] >= 'A' && linea[i] <= 'F'){
-            // Si es el último caracter y es una letra, es un número negativo
-            // hay que dejar el caracter hexadecimal tal cual
-            hexadecimal[0] = linea[i];
-            hexadecimal[1] = '\0';     
-            strcat(direccion, hexadecimal);
-
-        }else{
-            interpretarNumeroHexadecimal(&linea[i], direccion);
-        }
-
-    }
-    strcat(instruccionFinal, " ");
-    strcat(instruccionFinal, direccion);
-
-}
-
 void imprimirMemoria(){
     printf("Memoria: Espacio Kernel\n");
     for (int i = 0; i < TAM_KERNEL; i++)
@@ -159,10 +87,14 @@ void imprimirMemoria(){
 PCB* crearPCB() {
     PCB *pcb = (PCB *)malloc(sizeof(PCB));
     pcb->pid = rand() % 100 + 1;
-    pcb->vidaT = rand() % 10 + 1;
     pcb->tiempoEjecucion = 0;
     pcb->estado = 0;
     pcb->prioridad = rand() % 3 + 1;
+    pcb->PC = 0;
+    // Inicializar registros
+    for(int i = 0; i < NUM_REGISTROS; i++){
+        pcb->registros[i] = 0;
+    }
     return pcb;
 }
 
@@ -175,13 +107,15 @@ TablaPaginas crearTablaPaginas() {
     return tablaPaginas;
 }
 
+
 void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, PCB *pcb) {
-    int direccionTablaPaginas = memoriaFisica->primeraDireccionLibreKernel;  // Asigna una dirección en memoria física
+    int *direccionTablaPaginas = malloc(sizeof(int));
+    *direccionTablaPaginas = memoriaFisica->primeraDireccionLibreKernel;
     for (int i = 0; i < tablaPaginas.numEntradas; i++) {
-        memoriaFisica->memoria[direccionTablaPaginas + i] = tablaPaginas.TablaDePaginas[i];
+        memoriaFisica->memoria[*direccionTablaPaginas + i] = tablaPaginas.TablaDePaginas[i];
     }
     memoriaFisica->primeraDireccionLibreKernel += tablaPaginas.numEntradas;  // Actualiza la primera dirección libre del espacio kernel
-    pcb->mm.pgb = &direccionTablaPaginas;  // Actualiza el puntero a la tabla de páginas
+    pcb->mm.pgb = direccionTablaPaginas;  // Actualiza el puntero a la tabla de páginas
     printf("PCB mm code: %X\n", *pcb->mm.code);
     printf("PCB mm data: %x\n", *pcb->mm.data);
     printf("PCB mm pgb: %x\n", *pcb->mm.pgb);
@@ -190,8 +124,8 @@ void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, PCB *pcb) {
 
 void ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
-    int direccionInstrucciones;
-    int direccionDatos;
+    int *direccionInstrucciones = malloc(sizeof(int));
+    int *direccionDatos = malloc(sizeof(int));
     int contadorInstrucciones = 0;
 
     // Leer el fichero
@@ -200,14 +134,14 @@ void ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
     // Leo las direcciones virtuales de los segmentos de código y datos
     if(getline(&linea, &len, fichero) != -1){
-        sscanf(linea, ".text %x", &direccionInstrucciones);
-        pcb->mm.code = &direccionInstrucciones;
+        sscanf(linea, ".text %x", direccionInstrucciones);
+        pcb->mm.code = direccionInstrucciones;
         //printf("PCB mm code: %X\n", *pcb->mm.code);
     }
 
     if(getline(&linea, &len, fichero) != -1){
-        sscanf(linea, ".data %x", &direccionDatos);
-        pcb->mm.data = &direccionDatos;
+        sscanf(linea, ".data %x", direccionDatos);
+        pcb->mm.data = direccionDatos;
         //printf("PCB mm data: %x\n", *pcb->mm.data);
     }
 
@@ -222,7 +156,7 @@ void ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
         memoriaFisica->primeraDireccionLibre += 1;
         tablaPaginas.numEntradas += 1;
 
-        if (contadorInstrucciones >= direccionDatos)
+        if (contadorInstrucciones >= *direccionDatos)
             printf("Dato: %d\n", numeroHexadecimal);
         else
             printf("Instrucción: %x\n", numeroHexadecimal);
@@ -260,19 +194,80 @@ PCB* leerProgramaELF(char *nombreFichero){
     return pcb;
 }
 
+// Función que únicamente comprueba si un fichero tiene la extensión elf
+bool esFicheroELF(char *nombreFichero){
+    char *extension = strrchr(nombreFichero, '.');
+    if (strcmp(extension, ".elf") == 0)
+        return true;
+    else
+        return false;
+}
+
+// Función que mira si el nombre de un fichero ya se ha procesado en el array de nombres de ficheros
+bool ficheroProcesado(char *nombreFichero){
+    for(int i = 0; i < 50; i++){
+        if(nombresFicheros[i] != NULL && strcmp(nombresFicheros[i], nombreFichero) == 0){
+            return true;
+        }
+    }
+    // Añadir el nombre del fichero al array de nombres de ficheros
+    for(int i = 0; i < NUM_ELF_MAX - 1; i++){
+        if(nombresFicheros[i + 1] == NULL){
+            nombresFicheros[i + 1] = nombreFichero;
+            return false;
+        }
+    }
+    // Ya se han procesado el máximo de ficheros
+    printf("Loader: Se han procesado el máximo de ficheros ELF\n");
+    return true;
+}
+
+// Función que se encarga de leer los ficheros ELF de un directorio y cargarlos en memoria
+void leerDirectorio(char *nombreDirectorio){
+    DIR *directorio;
+    struct dirent *entrada;
+    struct stat atributos;
+    char ruta[256];
+
+    directorio = opendir(nombreDirectorio);
+    if (directorio == NULL){
+        printf("Error al abrir el directorio\n");
+        exit(-1);
+    }
+
+    while ((entrada = readdir(directorio)) != NULL){
+        // Ignorar los directorios . y ..
+        if (strcmp(entrada->d_name, ".") != 0 && strcmp(entrada->d_name, "..") != 0){
+            // Crear la ruta completa del fichero
+            strcpy(ruta, nombreDirectorio);
+            strcat(ruta, "/");
+            strcat(ruta, entrada->d_name);
+
+            // Comprobar si es un fichero ELF
+            if (esFicheroELF(ruta) && !ficheroProcesado(entrada->d_name)){
+                // Leer el fichero ELF
+                PCB *pcb = leerProgramaELF(ruta);
+                // Asignar PCB a una cola de prioridad
+                encolarProceso(pcb, priorityQueues[pcb->prioridad - 1]);
+                printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
+                imprimirColas();
+                imprimirMemoria();
+                break;
+            }else if(ficheroProcesado(entrada->d_name)){
+                continue;
+            }
+        }
+    }
+    closedir(directorio);
+}
+
 void* loader(void *arg){
-    
     while (1)
     {
         // Esperar a que llegue la señal de interrupción del timer
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond_timer, &mutex);
-        PCB *pcb = leerProgramaELF(pathFichero);
-        // Asignar PCB a una cola de prioridad
-        encolarProceso(pcb, priorityQueues[pcb->prioridad - 1]);
-        printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
-        imprimirColas();
-        imprimirMemoria();
+        leerDirectorio(pathDirectorio);
         pthread_mutex_unlock(&mutex);
     }
 }

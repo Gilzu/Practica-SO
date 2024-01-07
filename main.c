@@ -19,7 +19,7 @@ pthread_cond_t cond_timer;
 int done;
 int periodoTimer;
 int tiempoSistema;
-char* pathFichero;
+char* pathDirectorio;
 
 void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *path){
     // Inicializar mutex y variables de condición
@@ -83,7 +83,7 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
     // Inicializar variables
     tiempoSistema = 0;
     done = 0;
-    pathFichero = path;
+    pathDirectorio = path;
 
     // Periodo de tick del timer
     periodoTimer = periodo;

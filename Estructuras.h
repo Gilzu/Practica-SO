@@ -15,11 +15,13 @@ typedef struct MM {
 // PCB
 typedef struct PCB {
     int pid;
-    int vidaT;
-    int estado;
+    int estado; // 0: listo, 1: ejecutando, 2: interrumpido(Quantum o expulsado)
     int tiempoEjecucion;
     int prioridad;
     MM mm;
+    // campos para salvar el estado de la ejecución
+    int PC;
+    int registros[NUM_REGISTROS];
 } PCB;
 
 // PCBNode
@@ -53,7 +55,7 @@ typedef struct MMU {
 typedef struct Thread{
     PCB *pcb;
     int tid;
-    int estado;
+    int estado; // 0: ocioso, 1: ejecutando
     int tEjecucion;
     int PC;
     int IR;
