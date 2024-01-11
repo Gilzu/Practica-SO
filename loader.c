@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdint.h> 
 #include "Estructuras.h"
+#include "colasYListaHuecos.h"
 #include <dirent.h>     
 #include <sys/stat.h>   
 #include <stdbool.h> 
@@ -16,73 +17,7 @@ extern pthread_cond_t cond_timer;
 extern MemoriaFisica *memoriaFisica;
 extern char* pathDirectorio;
 char *nombresFicheros[NUM_ELF_MAX];
-
-
-void encolarProceso(PCB *pcb, Queue *colaProcesos){
-    // Crear nuevo nodo
-    PCBNode *nuevo = (PCBNode *)malloc(sizeof(PCBNode));
-    nuevo->pcb = pcb;
-    nuevo->sig = NULL;
-    // Encolar proceso
-    if(colaProcesos->tail != NULL){
-        colaProcesos->tail->sig = nuevo;
-    }
-    colaProcesos->tail = nuevo;
-
-    // Comprobar si la cola estaba vacía
-    if(colaProcesos->head == NULL){
-        colaProcesos->head = nuevo;
-    }
-    colaProcesos->numProcesos++;
-}
-
-PCB* desencolarProceso(Queue *colaProcesos){
-    // Comprobar cola vacía
-    if(colaProcesos->head == NULL){
-        return NULL;
-    }
-    // Desencolar proceso
-    PCBNode *aux = colaProcesos->head;
-    PCB *resultado = aux->pcb;
-    colaProcesos->head = colaProcesos->head->sig;
-
-    // Comprobar si la cola queda vacía
-    if(colaProcesos->head == NULL){
-        colaProcesos->tail = NULL;
-    }
-
-    free(aux);
-    colaProcesos->numProcesos--;
-    return resultado;
-
-}
-
-void imprimirColas(){
-    printf("Cola de procesos:\n");
-    for(int i = 0; i < 3; i++){
-        printf("Cola %d:\n", i+1);
-        PCBNode *aux = priorityQueues[i]->head;
-        while(aux != NULL){
-            printf("Proceso %d\n", aux->pcb->pid);
-            aux = aux->sig;
-        }
-    }
-}
-
-void imprimirMemoria(){
-    printf("Memoria: Espacio Kernel\n");
-    for (int i = 0; i < TAM_KERNEL; i++)
-    {
-        if(memoriaFisica->memoria[i] != 0)
-            printf("%d: %d\n", i, memoriaFisica->memoria[i]);
-    }
-    printf("Memoria: Espacio de usuario\n");
-    for (int i = TAM_KERNEL; i < memoriaFisica->primeraDireccionLibre; i++)
-    {
-        if(memoriaFisica->memoria[i] != 0)
-            printf("%d: %d\n", i, memoriaFisica->memoria[i]);
-    }
-}
+extern bool todosCargados;
 
 PCB* crearPCB() {
     PCB *pcb = (PCB *)malloc(sizeof(PCB));
@@ -228,6 +163,7 @@ void leerDirectorio(char *nombreDirectorio){
     struct dirent *entrada;
     struct stat atributos;
     char ruta[256];
+    bool ElfProcesado = false;
 
     directorio = opendir(nombreDirectorio);
     if (directorio == NULL){
@@ -252,17 +188,21 @@ void leerDirectorio(char *nombreDirectorio){
                 printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
                 imprimirColas();
                 imprimirMemoria();
+                ElfProcesado = true;
                 break;
             }else if(ficheroProcesado(entrada->d_name)){
                 continue;
             }
         }
     }
+    if(!ElfProcesado)
+        todosCargados = true;
+        
     closedir(directorio);
 }
 
 void* loader(void *arg){
-    while (1)
+    while (!todosCargados)
     {
         // Esperar a que llegue la señal de interrupción del timer
         pthread_mutex_lock(&mutex);
@@ -270,6 +210,7 @@ void* loader(void *arg){
         leerDirectorio(pathDirectorio);
         pthread_mutex_unlock(&mutex);
     }
+    printf("Loader: Todos los ficheros ELF han sido cargados\n");
 }
 
 

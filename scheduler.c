@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "Estructuras.h"
-#include "loader.h"
+#include "colasYListaHuecos.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -14,7 +14,22 @@ extern int tiempoSistema;
 extern int periodoTimer;
 extern Queue *priorityQueues[3];
 extern MemoriaFisica *memoriaFisica;
+extern bool todosCargados;
+extern bool todosProcesados;
 
+
+bool todosHilosLibres(){
+    for(int i = 0; i < machine->numCPUs; i++){
+        for(int j = 0; j < machine->cpus[i].numCores; j++){
+            for(int k = 0; k < machine->cpus[i].cores[j].numThreads; k++){
+                if(machine->cpus[i].cores[j].threads[k].estado == 1){
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
 
 void imprimirEstadoHilos(){
     for(int i = 0; i < machine->numCPUs; i++){
@@ -78,8 +93,9 @@ void asignarHilo(PCB *pcb){
                     printf("pgb del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->pcb->mm.pgb);
                     printf("data del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->pcb->mm.data);
                     printf("PTBR del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->PTBR);
-                    printf("Proceso %d asignado al hilo %d del core %d de la CPU %d\n", pcb->pid, k, j, i);
                     */
+                    printf("Proceso %d asignado al hilo %d del core %d de la CPU %d\n", pcb->pid, k, j, i);
+                    
                     return;
                 }
             }
@@ -172,7 +188,6 @@ void liberarHilos(){
             }
         }
     }
-    imprimirEstadoHilos();
 }
 
 
@@ -196,11 +211,14 @@ void roundRobin(void *arg){
             continue;
         }
     }
+    if (todosCargados && todosHilosLibres()){
+        todosProcesados = true;
+    }
 }
 
 
 void* scheduler(void *arg){
-    while (1)
+    while (!todosProcesados)
     {
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond_timer, &mutex);
@@ -210,6 +228,6 @@ void* scheduler(void *arg){
         imprimirColas(NULL);
         imprimirEstadoHilos();
         pthread_mutex_unlock(&mutex);
-
     }
+    printf("Scheduler: Todos los ficheros ELF han sido cargados y procesados\n");
 }

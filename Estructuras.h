@@ -96,5 +96,22 @@ typedef struct MemoriaFisica {
     int primeraDireccionLibreKernel;
 } MemoriaFisica;
 
+// Estructura para representar un hueco en la memoria
+typedef struct Hueco {
+    int direccionInicio; // Dirección de inicio del hueco
+    int tamano;          // Tamaño del hueco
+} Hueco;
+
+// Nodo de la lista enlazada para los huecos
+typedef struct NodoHueco {
+    Hueco hueco;
+    struct NodoHueco *siguiente;
+} NodoHueco;
+
+// Lista enlazada para los huecos
+typedef struct ListaHuecos {
+    NodoHueco *inicio;
+} ListaHuecos;
+
 #endif // ESTRUCTURAS_H
 

@@ -7,7 +7,10 @@
 #include "clock.h"
 #include "scheduler.h"
 #include "loader.h"
+#include "colasYListaHuecos.h"
 #include "timer.h"
+#include <stdbool.h> 
+
 
 // Variables globales
 Machine *machine;
@@ -20,6 +23,9 @@ int done;
 int periodoTimer;
 int tiempoSistema;
 char* pathDirectorio;
+bool todosCargados = false;
+bool todosProcesados = false;
+
 
 void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *path){
     // Inicializar mutex y variables de condición
@@ -138,12 +144,22 @@ int main(int argc, char *argv[]){
     pthread_create(&hiloScheduler, NULL, &scheduler, NULL);
     pthread_create(&hiloLoader, NULL, &loader, NULL);
 
+    while (!todosProcesados)
+    {
+        // Esperar a que los procesos terminen y a que todos los archivos ELF sean procesados
+    }
+    // Finalizar el simulador
+    pthread_cancel(hiloClock);
+    pthread_cancel(hiloTimer);
+    pthread_cancel(hiloScheduler);
+    pthread_cancel(hiloLoader);
+
     // Esperar a que los hilos terminen
     pthread_join(hiloClock, NULL);
     pthread_join(hiloTimer, NULL);
     pthread_join(hiloScheduler, NULL);
     pthread_join(hiloLoader, NULL);
-    
+
     // Liberar memoria
     free(machine);
     for(int i = 0; i < 3; i++){
@@ -154,5 +170,8 @@ int main(int argc, char *argv[]){
     pthread_cond_destroy(&cond_clock);
     pthread_cond_destroy(&cond_timer);
 
+    printf("#############################################\n");
+    printf("Se ha terminado la ejecución del simulador\n");
+    printf("#############################################\n");
     exit(0);
 }
