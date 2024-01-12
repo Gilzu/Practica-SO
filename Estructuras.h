@@ -1,8 +1,8 @@
 #ifndef ESTRUCTURAS_H
 #define ESTRUCTURAS_H
-#define TAM_MEMORIA 4096
-#define TAM_KERNEL 1024
-#define NUM_ENTRADAS_TABLAPAGINAS 128
+#define TAM_MEMORIA 16384
+#define TAM_KERNEL 4096
+#define NUM_ENTRADAS_TABLAPAGINAS 64 // el valor teórico serían 2^22 entradas, pero para simplificar se ha puesto 64 ya que un proceso nunca ocupará las 2^22 entradas
 #define NUM_REGISTROS 16
 
 // MM
@@ -91,9 +91,9 @@ typedef struct TablaPaginas {
 // Memoria física
 // Cada elemento del array simulará una "palabra" de memoria
 typedef struct MemoriaFisica {
-    int memoria[TAM_MEMORIA];
-    int primeraDireccionLibre;
-    int primeraDireccionLibreKernel;
+    int memoria[TAM_MEMORIA / 4]; // 16384B totales / 4B por palabra = 4096 palabras, es decir, 4096 elementos en el array
+    int primeraDireccionLibre; // Dirección de la primera palabra libre del espacio de usuario
+    int primeraDireccionLibreKernel; // Dirección de la primera palabra libre del espacio kernel
 } MemoriaFisica;
 
 // Estructura para representar un hueco en la memoria

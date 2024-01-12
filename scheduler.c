@@ -79,7 +79,7 @@ void asignarHilo(PCB *pcb){
                 if(thread->estado == 0 && thread->pcb == NULL){ // Hilo ocioso y sin proceso asignado
                     thread->pcb = pcb;
                     if(thread->pcb->estado == 0){
-                        // Actualizar el PC, PTBR del hilo con los valores del PCB si es la primera vez que se asigna
+                        // Actualizar el PC si es la primera vez que se asigna
                         thread->PC = *thread->pcb->mm.code;
                     }else if(thread->pcb->estado == 2){
                         // El proceso ha sido reencolado, restaurar el estado del hilo

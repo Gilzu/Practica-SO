@@ -16,6 +16,8 @@
 Machine *machine;
 MemoriaFisica *memoriaFisica;
 Queue *priorityQueues[3];
+ListaHuecos *listaHuecosUsuario;
+ListaHuecos *listaHuecosKernel;
 pthread_mutex_t mutex;
 pthread_cond_t cond_clock;
 pthread_cond_t cond_timer;
@@ -67,14 +69,35 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
 
     // Inicializar memeoria y reservar espacio para espacio Kernel y tabla de páginas
     memoriaFisica = (MemoriaFisica *)malloc(sizeof(MemoriaFisica));
-    for (int i = 0; i < TAM_MEMORIA; i++)
+    for (int i = 0; i < (TAM_MEMORIA / 4); i++)
     {
         memoriaFisica->memoria[i] = 0;
     }
-    memoriaFisica->primeraDireccionLibreKernel = 0;
-    memoriaFisica->primeraDireccionLibre = TAM_KERNEL;
-    
 
+    // Reservar espacio para el kernel dentro del espacio kernel como tal
+    // Simula que el kernel se encuentra en las primeras 256 palabras de memoria
+    for (int i = 0; i < (TAM_KERNEL / 16); i++)
+    {
+        memoriaFisica->memoria[i] = 1;
+    }
+    memoriaFisica->primeraDireccionLibreKernel = TAM_KERNEL / 16; // la primera dirección libre del espacio kernel donde se guardarán las tablas de páginas es la dirección 256
+    memoriaFisica->primeraDireccionLibre = TAM_KERNEL / 4; // la primera dirección libre del espacio de usuario es la dirección 1024
+
+    
+    // Inicializar lista de huecos de usuario con un hueco que ocupe todo el espacio de usuario
+    listaHuecosUsuario = (ListaHuecos *)malloc(sizeof(ListaHuecos));
+    listaHuecosUsuario->inicio = (NodoHueco *)malloc(sizeof(NodoHueco));
+    listaHuecosUsuario->inicio->hueco.direccionInicio = memoriaFisica->primeraDireccionLibre;
+    listaHuecosUsuario->inicio->hueco.tamano = TAM_MEMORIA / 4 - memoriaFisica->primeraDireccionLibre; // Hueco inicial que ocupa todo el espacio de usuario de 3072 palabras
+    listaHuecosUsuario->inicio->siguiente = NULL;
+
+    // Inicializar lista de huecos de kernel con un hueco que ocupe todo el espacio de kernel después del espacio reservado para el kernel
+    listaHuecosKernel = (ListaHuecos *)malloc(sizeof(ListaHuecos));
+    listaHuecosKernel->inicio = (NodoHueco *)malloc(sizeof(NodoHueco));
+    listaHuecosKernel->inicio->hueco.direccionInicio = memoriaFisica->primeraDireccionLibreKernel;
+    listaHuecosKernel->inicio->hueco.tamano = (TAM_KERNEL / 4) - memoriaFisica->primeraDireccionLibreKernel; // Hueco inicial que ocupa todo el espacio de kernel de 768 palabras
+    listaHuecosKernel->inicio->siguiente = NULL;
+    
 
     // Inicializar priorityQueues
     for(int i = 0; i < 3; i++){
@@ -85,6 +108,8 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
         priorityQueues[i]->quantum = 2*(i+1);
         priorityQueues[i]->prioridad = i + 1;
     }
+
+
 
     // Inicializar variables
     tiempoSistema = 0;
@@ -115,14 +140,6 @@ void comprobarArgumentos(int argc, char *argv[]){
         printf("Todos los argumentos deben ser naturales mayores que 0\n");
         exit(-1);
     }
-    // comprobar que el quinto argumento es path
-    /*
-    if (argv[5][0] != '/')
-    {
-        printf("Error en los argumentos\n");
-        printf("El quinto argumento debe ser un path\n");
-        exit(-1);
-    }*/
 
     // Inicializar las estructuras de datos
     inicializar(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), argv[5]);
@@ -166,6 +183,8 @@ int main(int argc, char *argv[]){
         free(priorityQueues[i]);
     }
     free(memoriaFisica);
+    free(listaHuecosUsuario);
+    free(listaHuecosKernel);
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond_clock);
     pthread_cond_destroy(&cond_timer);
