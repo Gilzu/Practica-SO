@@ -6,7 +6,9 @@ void encolarProceso(PCB *pcb, Queue *colaProcesos);
 PCB *desencolarProceso(Queue *colaProcesos);
 void imprimirColas();
 void imprimirMemoria();
+void agregarHueco(ListaHuecos *lista, int direccion, int tamano);
 int buscarYActualizarHueco(ListaHuecos *lista, int tamano);
+void imprimirListasHuecos();
 
 #endif
 

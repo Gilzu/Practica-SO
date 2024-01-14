@@ -11,8 +11,12 @@
 
 extern Queue *priorityQueues[3];
 extern MemoriaFisica *memoriaFisica;
+extern ListaHuecos *listaHuecosUsuario;
+extern ListaHuecos *listaHuecosKernel;
 
-// Funciones para el manejo de colas
+// FUNCIONES COLAS
+
+// Encolar un proceso en la cola de procesos
 void encolarProceso(PCB *pcb, Queue *colaProcesos){
     // Crear nuevo nodo
     PCBNode *nuevo = (PCBNode *)malloc(sizeof(PCBNode));
@@ -31,6 +35,7 @@ void encolarProceso(PCB *pcb, Queue *colaProcesos){
     colaProcesos->numProcesos++;
 }
 
+// Desencolar un proceso de la cola de procesos
 PCB* desencolarProceso(Queue *colaProcesos){
     // Comprobar cola vacía
     if(colaProcesos->head == NULL){
@@ -66,26 +71,28 @@ void imprimirColas(){
 
 void imprimirMemoria(){
     printf("Memoria: Espacio Kernel\n");
-    for (int i = 0; i < TAM_KERNEL; i++)
+    for (int i = TAM_KERNEL / 16; i < TAM_KERNEL / 4; i++)
     {
         if(memoriaFisica->memoria[i] != 0)
             printf("%d: %d\n", i, memoriaFisica->memoria[i]);
     }
     printf("Memoria: Espacio de usuario\n");
-    for (int i = TAM_KERNEL; i < memoriaFisica->primeraDireccionLibre; i++)
+    for (int i = TAM_KERNEL / 4; i < TAM_MEMORIA / 4; i++)
     {
         if(memoriaFisica->memoria[i] != 0)
             printf("%d: %d\n", i, memoriaFisica->memoria[i]);
     }
 }
 
-// Funciones manejo de lista de huecos
+// FUNCIONES LISTA HUECOS
 
 // Agrega un nuevo hueco a la lista
 void agregarHueco(ListaHuecos *lista, int direccionInicio, int tamano) {
     NodoHueco *nuevoHueco = (NodoHueco *)malloc(sizeof(NodoHueco));
     nuevoHueco->hueco.direccionInicio = direccionInicio;
     nuevoHueco->hueco.tamano = tamano;
+    // agregar hueco al principio de la lista
+    nuevoHueco->siguiente = lista->inicio;
     lista->inicio = nuevoHueco;
 }
 
@@ -111,14 +118,14 @@ void eliminarHueco(NodoHueco *hueco, ListaHuecos *lista) {
 
 // Busca un hueco dado un tamaño y actualiza el nuevo tamaño del hueco si no se utiliza todo el hueco. Si se utiliza todo el hueco, elimina el hueco de la lista
 // Utiliza una política de first-fit
-bool buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
+int buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
     NodoHueco *actual = lista->inicio;
     NodoHueco *anterior = NULL;
-    bool huecoEncontrado = false;
+    int direccionInicio = -1;
 
     while (actual != NULL) {
         if (actual->hueco.tamano >= tamano) {
-            huecoEncontrado = true;
+            direccionInicio = actual->hueco.direccionInicio;
             if (actual->hueco.tamano == tamano) { // Se utiliza todo el hueco y se elimina
                 if (anterior == NULL) {
                     lista->inicio = actual->siguiente;
@@ -135,7 +142,7 @@ bool buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
         anterior = actual;
         actual = actual->siguiente;
     }
-    return huecoEncontrado;
+    return direccionInicio;
 }
 
 /*
@@ -158,6 +165,22 @@ void eliminarHueco(NodoHueco *hueco, ListaHuecos *lista) {
         actual = actual->siguiente;
     }
 }*/
+
+// Imprime las dos listas de huecos
+void imprimirListasHuecos(){
+    printf("Lista de huecos de kernel:\n");
+    NodoHueco *aux = listaHuecosKernel->inicio;
+    while(aux != NULL){
+        printf("Hueco: direccionInicio: %d, tamano: %d\n", aux->hueco.direccionInicio, aux->hueco.tamano);
+        aux = aux->siguiente;
+    }
+    printf("Lista de huecos de usuario:\n");
+    aux = listaHuecosUsuario->inicio;
+    while(aux != NULL){
+        printf("Hueco: direccionInicio: %d, tamano: %d\n", aux->hueco.direccionInicio, aux->hueco.tamano);
+        aux = aux->siguiente;
+    }
+}
 
 // Fusiona huecos adyacentes si es posible (opcional pero recomendado)
 void fusionarHuecosAdyacentes(ListaHuecos *lista) {

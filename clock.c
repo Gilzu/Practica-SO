@@ -12,6 +12,8 @@ extern pthread_cond_t cond_timer;
 extern pthread_cond_t cond_clock;
 extern Machine *machine;
 extern MemoriaFisica *memoriaFisica;
+extern ListaHuecos *listaHuecosUsuario;
+extern ListaHuecos *listaHuecosKernel;
 extern int done;
 extern int tiempoSistema;
 
@@ -105,6 +107,7 @@ void traducirInstruccion(char *instruccion, char *instruccionFinal){
 
 }
 
+
 // Funcion que traduce una direccion virtual a una direccion fisica
 int traducirDireccionVirtual(int direccionVirtual, Thread *thread){
     
@@ -140,6 +143,33 @@ void realizarSuma(Thread *thread, char *rd, char *rs1, char *rs2) {
     printf("Suma de %d y %d guardada en el registro %d\n", valorSumando1, valorSumando2, atoi(rd));
 }
 
+void EliminarDeMemoria(PCB *pcb){
+    // Eliminar el proceso de la memoria
+    int direccionTablaPaginas = *pcb->mm.pgb;
+    int direccionInicio = memoriaFisica->memoria[direccionTablaPaginas];
+    int tamano = pcb->tamanoProceso;
+
+    // Eliminar la tabla de páginas del espacio kernel
+    for(int i = 0; i < tamano; i++){
+        memoriaFisica->memoria[direccionInicio + i] = 0;
+    }
+
+    // Eliminar el código y los datos del espacio de usuario
+    for(int i = 0; i < tamano; i++){
+        memoriaFisica->memoria[direccionTablaPaginas + i] = 0;
+    }
+
+    // Añadir hueco a la lista de huecos de usuario
+    agregarHueco(listaHuecosUsuario, direccionInicio, tamano);
+
+    // Añadir hueco a la lista de huecos de kernel
+    agregarHueco(listaHuecosKernel, direccionTablaPaginas, tamano);
+
+    // Imprimir memoria y listas de huecos
+    imprimirMemoria();
+    imprimirListasHuecos();
+}
+
 void terminarProceso(Thread *thread) {
     printf("Proceso %d terminado\n", thread->pcb->pid);
     PCB *pcb = thread->pcb;
@@ -152,6 +182,9 @@ void terminarProceso(Thread *thread) {
     for (int i = 0; i < NUM_REGISTROS; i++) {
         thread->registros[i] = 0;
     }
+    EliminarDeMemoria(pcb);
+
+    // Liberar PCB
     liberarPCB(pcb);
 }
 
@@ -179,6 +212,16 @@ bool ejecutarInstruccion(char* instruccion, Thread *thread) {
     return true;
 }
 
+void rellenarCon0(char *cadena, int numCeros) {
+    char cadenaAux[50];
+    strcpy(cadenaAux, cadena);
+    strcpy(cadena, "");
+    for (int i = 0; i < numCeros; i++) {
+        strcat(cadena, "0");
+    }
+    strcat(cadena, cadenaAux);
+}
+
 
 void moverMaquina (void *arg){
     // Actualiza todos los tiempos de los procesos en ejecución
@@ -201,11 +244,8 @@ void moverMaquina (void *arg){
                     char resultado[50];
                     sprintf(instruccionCadena, "%X", instruccion);
                     if(strlen(instruccionCadena) < 8){
-                        // Rellenar con un único 0 a la izquierda
-                        char instruccionCadenaAux[50];
-                        strcpy(instruccionCadenaAux, instruccionCadena);
-                        strcpy(instruccionCadena, "0");
-                        strcat(instruccionCadena, instruccionCadenaAux);
+                        // Rellenar con ceros a la izquierda hasta que la instrucción tenga 8 caracteres
+                        rellenarCon0(instruccionCadena, 8 - strlen(instruccionCadena));
                     }
                     printf("Instrucción: %s\n", instruccionCadena);
                     traducirInstruccion(instruccionCadena, resultado);
@@ -217,7 +257,6 @@ void moverMaquina (void *arg){
                     // Incrementar el PC del hilo
                     thread->PC += 1;
                     // Incrementar tiempo de ejecución
-                    thread->pcb->tiempoEjecucion++;
                     thread->tEjecucion++;
                 }
             }

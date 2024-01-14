@@ -80,22 +80,20 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
     {
         memoriaFisica->memoria[i] = 1;
     }
-    memoriaFisica->primeraDireccionLibreKernel = TAM_KERNEL / 16; // la primera dirección libre del espacio kernel donde se guardarán las tablas de páginas es la dirección 256
-    memoriaFisica->primeraDireccionLibre = TAM_KERNEL / 4; // la primera dirección libre del espacio de usuario es la dirección 1024
 
     
     // Inicializar lista de huecos de usuario con un hueco que ocupe todo el espacio de usuario
     listaHuecosUsuario = (ListaHuecos *)malloc(sizeof(ListaHuecos));
     listaHuecosUsuario->inicio = (NodoHueco *)malloc(sizeof(NodoHueco));
-    listaHuecosUsuario->inicio->hueco.direccionInicio = memoriaFisica->primeraDireccionLibre;
-    listaHuecosUsuario->inicio->hueco.tamano = TAM_MEMORIA / 4 - memoriaFisica->primeraDireccionLibre; // Hueco inicial que ocupa todo el espacio de usuario de 3072 palabras
+    listaHuecosUsuario->inicio->hueco.direccionInicio = TAM_KERNEL / 4; // la primera dirección libre del espacio de usuario es la dirección 1024
+    listaHuecosUsuario->inicio->hueco.tamano = (TAM_MEMORIA / 4) - (TAM_KERNEL / 4); // Hueco inicial que ocupa todo el espacio de usuario de 3072 palabras
     listaHuecosUsuario->inicio->siguiente = NULL;
 
     // Inicializar lista de huecos de kernel con un hueco que ocupe todo el espacio de kernel después del espacio reservado para el kernel
     listaHuecosKernel = (ListaHuecos *)malloc(sizeof(ListaHuecos));
     listaHuecosKernel->inicio = (NodoHueco *)malloc(sizeof(NodoHueco));
-    listaHuecosKernel->inicio->hueco.direccionInicio = memoriaFisica->primeraDireccionLibreKernel;
-    listaHuecosKernel->inicio->hueco.tamano = (TAM_KERNEL / 4) - memoriaFisica->primeraDireccionLibreKernel; // Hueco inicial que ocupa todo el espacio de kernel de 768 palabras
+    listaHuecosKernel->inicio->hueco.direccionInicio = TAM_KERNEL / 16; // la primera dirección libre del espacio kernel donde se guardarán las tablas de páginas es la dirección 256
+    listaHuecosKernel->inicio->hueco.tamano = (TAM_KERNEL / 4) - (TAM_KERNEL / 16); // Hueco inicial que ocupa todo el espacio de kernel de 768 palabras
     listaHuecosKernel->inicio->siguiente = NULL;
     
 

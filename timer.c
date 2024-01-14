@@ -14,9 +14,10 @@ extern int periodoTimer;
 void* timer(void *arg){
 
     
-    pthread_mutex_lock(&mutex);
+    
     while (1)
     {
+        pthread_mutex_lock(&mutex);
         done++;
         pthread_cond_signal(&cond_clock);
         pthread_cond_wait(&cond_timer, &mutex);

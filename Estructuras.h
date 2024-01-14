@@ -18,6 +18,7 @@ typedef struct PCB {
     int estado; // 0: listo, 1: ejecutando, 2: interrumpido(Quantum o expulsado)
     int tiempoEjecucion;
     int prioridad;
+    int tamanoProceso;
     MM mm;
     // campos para salvar el estado de la ejecución
     int PC;
@@ -92,8 +93,6 @@ typedef struct TablaPaginas {
 // Cada elemento del array simulará una "palabra" de memoria
 typedef struct MemoriaFisica {
     int memoria[TAM_MEMORIA / 4]; // 16384B totales / 4B por palabra = 4096 palabras, es decir, 4096 elementos en el array
-    int primeraDireccionLibre; // Dirección de la primera palabra libre del espacio de usuario
-    int primeraDireccionLibreKernel; // Dirección de la primera palabra libre del espacio kernel
 } MemoriaFisica;
 
 // Estructura para representar un hueco en la memoria

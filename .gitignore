@@ -1,1 +1,5 @@
 programasELF/
+programasELF2/
+*.o
+simulador
+ 

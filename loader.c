@@ -28,6 +28,7 @@ PCB* crearPCB() {
     pcb->estado = 0;
     pcb->prioridad = rand() % 3 + 1;
     pcb->PC = 0;
+    pcb->tamanoProceso = 0;
     // Inicializar registros
     for(int i = 0; i < NUM_REGISTROS; i++){
         pcb->registros[i] = 0;
@@ -62,21 +63,21 @@ int comprobarTamanoFichero(FILE *fichero){
     return instrucciones;
 }
 
-void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, PCB *pcb) {
+void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, int direccionHuecoKernel, PCB *pcb) {
     int *direccionTablaPaginas = malloc(sizeof(int));
-    *direccionTablaPaginas = memoriaFisica->primeraDireccionLibreKernel;
+    *direccionTablaPaginas = direccionHuecoKernel;
     for (int i = 0; i < tablaPaginas.numEntradas; i++) {
         memoriaFisica->memoria[*direccionTablaPaginas + i] = tablaPaginas.TablaDePaginas[i];
     }
-    memoriaFisica->primeraDireccionLibreKernel += tablaPaginas.numEntradas;  // Actualiza la primera dirección libre del espacio kernel
+    //memoriaFisica->primeraDireccionLibreKernel += tablaPaginas.numEntradas;  // Actualiza la primera dirección libre del espacio kernel
     pcb->mm.pgb = direccionTablaPaginas;  // Actualiza el puntero a la tabla de páginas
     printf("PCB mm code: %X\n", *pcb->mm.code);
     printf("PCB mm data: %x\n", *pcb->mm.data);
-    printf("PCB mm pgb: %x\n", *pcb->mm.pgb);
+    printf("PCB mm pgb: %d\n", *pcb->mm.pgb);
     printf("comprobar pgb: %d\n", memoriaFisica->memoria[*pcb->mm.pgb]);
 }
 
-void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, PCB *pcb){
+void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direccionHuecoUsuario, PCB *pcb){
 
     int *direccionInstrucciones = malloc(sizeof(int));
     int *direccionDatos = malloc(sizeof(int));
@@ -99,13 +100,13 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, PCB *pcb)
     while(getline(&linea, &len, fichero) != -1){
         sscanf(linea, "%x", &numeroHexadecimal);
         // Guardar la instrucción o dato en memoria y guardar en la tabla de páginas
-        memoriaFisica->memoria[memoriaFisica->primeraDireccionLibre] = numeroHexadecimal;
-        tablaPaginas->TablaDePaginas[tablaPaginas->numEntradas] = memoriaFisica->primeraDireccionLibre;
+        memoriaFisica->memoria[direccionHuecoUsuario] = numeroHexadecimal;
+        tablaPaginas->TablaDePaginas[tablaPaginas->numEntradas] = direccionHuecoUsuario;
 
-        // Actualizar la primera dirección libre y el número de entradas de la tabla de páginas
-        memoriaFisica->primeraDireccionLibre += 1;
+        // Actualizar la dirección del hueco de usuario y el número de entradas de la tabla de páginas
+        direccionHuecoUsuario += 1;
         tablaPaginas->numEntradas += 1;
-
+        
         if (contadorInstrucciones >= *direccionDatos)
             printf("Dato: %d\n", numeroHexadecimal);
         else
@@ -113,6 +114,7 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, PCB *pcb)
 
         contadorInstrucciones += 4;
     }
+    pcb->tamanoProceso = tablaPaginas->numEntradas;
 
     // Liberar recursos y cerrar fichero
     free(linea);
@@ -123,8 +125,8 @@ bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
     int contadorInstrucciones = 0;
     int tamanoTablaPaginas = 0;
-    bool hayHuecoKernel = false;
-    bool hayHuecoUsuario = false;
+    int direccionHuecoKernel = false;
+    int direccionHuecoUsuario = false;
     bool procesoCargado = false;
 
     // Leer el fichero
@@ -137,12 +139,12 @@ bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
     tamanoTablaPaginas = tamanoProceso;
     // Comprobar si hay un hueco suficientemente grande en la lista de huecos de kernel y lista de huecos de usuario
 
-    hayHuecoKernel = buscarYActualizarHueco(listaHuecosKernel, tamanoTablaPaginas);
-    hayHuecoUsuario = buscarYActualizarHueco(listaHuecosUsuario, tamanoProceso);
+    direccionHuecoKernel = buscarYActualizarHueco(listaHuecosKernel, tamanoTablaPaginas);
+    direccionHuecoUsuario = buscarYActualizarHueco(listaHuecosUsuario, tamanoProceso);
 
-    if(hayHuecoKernel && hayHuecoUsuario){ // Si hay hueco en el kernel y en el espacio de usuario, cargar el proceso en memoria y guardar la tabla de páginas
-        cargarProcesoEnMemoria(fichero, &tablaPaginas, pcb);
-        guardarTablaPaginasEnMemoria(tablaPaginas, pcb);
+    if(direccionHuecoKernel != -1 && direccionHuecoUsuario != -1 ){ // Si hay hueco en el kernel y en el espacio de usuario, cargar el proceso en memoria y guardar la tabla de páginas
+        cargarProcesoEnMemoria(fichero, &tablaPaginas, direccionHuecoUsuario, pcb);
+        guardarTablaPaginasEnMemoria(tablaPaginas, direccionHuecoKernel, pcb);
         procesoCargado = true;
     }else{
         printf("Loader: No hay hueco suficientemente grande para el proceso %d en el kernel o en la zona de usuario \n", pcb->pid);
@@ -253,6 +255,7 @@ void leerDirectorio(char *nombreDirectorio){
             // Comprobar si es un fichero ELF
             if (esFicheroELF(ruta) && !ficheroProcesado(entrada->d_name) && hayEspacioArray){
                 // Leer el fichero ELF
+                printf("Loader: Leyendo fichero ELF %s\n", entrada->d_name);
                 PCB *pcb = leerProgramaELF(ruta);
                 if (pcb == NULL){
                     printf("Loader: No se ha podido cargar el proceso %d\n", pcb->pid);
@@ -264,6 +267,7 @@ void leerDirectorio(char *nombreDirectorio){
                     printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
                     imprimirColas();
                     imprimirMemoria();
+                    imprimirListasHuecos();
                 }
                 ElfProcesado = true;
                 break;
