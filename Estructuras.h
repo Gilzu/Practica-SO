@@ -4,6 +4,7 @@
 #define TAM_KERNEL 4096
 #define NUM_ENTRADAS_TABLAPAGINAS 64 // el valor teórico serían 2^22 entradas, pero para simplificar se ha puesto 64 ya que un proceso nunca ocupará las 2^22 entradas
 #define NUM_REGISTROS 16
+#define NUM_ENTRADAS_TLB 4
 
 // MM
 typedef struct MM {
@@ -40,16 +41,22 @@ typedef struct Queue {
     int prioridad;
 } Queue;
 
+// entrada de TLB
+typedef struct TLBentrada {
+    int paginaVirtual; // la dirección virtual de la página
+    int marcoFísico; // el correspondiente marco físico
+    int contadorTiempo; // contador de tiempo para implementar el algoritmo LRU, 0 si acaba de ser accedida
+} TLBentrada;
+
 // TLB
 typedef struct TLB {
-    int numeroPagina;
-    int marco;
+    TLBentrada entradas[NUM_ENTRADAS_TLB];
+    int numEntradas;
 } TLB;
 
 // MMU
 typedef struct MMU {
-    TLB *TLB;
-    int numEntradasTLB;
+    TLB TLB;
 } MMU;
 
 // Thread

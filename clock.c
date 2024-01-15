@@ -107,14 +107,61 @@ void traducirInstruccion(char *instruccion, char *instruccionFinal){
 
 }
 
+void actualizarTLB(Thread *thread, int direccionVirtual, int direccionFisica){
+    // Actualizar la TLB
+    int numeroEntradasTLB = thread->mmu.TLB.numEntradas;
+    if (numeroEntradasTLB < NUM_ENTRADAS_TLB)  // Hay hueco en la TLB, añadir la entrada
+    {
+       
+        thread->mmu.TLB.entradas[numeroEntradasTLB].paginaVirtual = direccionVirtual;
+        thread->mmu.TLB.entradas[numeroEntradasTLB].marcoFísico = direccionFisica;
+        thread->mmu.TLB.entradas[numeroEntradasTLB].contadorTiempo = 0;
+        thread->mmu.TLB.numEntradas++;
+
+    }else{ // No hay hueco en la TLB, reemplazar por la entrada que lleve más tiempo sin usarse. En caso de empate, reemplazar la primera entrada que se encuentre
+        int entradaAEliminar = 0;
+        int tiempoMaximo = thread->mmu.TLB.entradas[0].contadorTiempo;
+        for (int i = 1; i < NUM_ENTRADAS_TLB; i++)
+        {
+            if(thread->mmu.TLB.entradas[i].contadorTiempo > tiempoMaximo){
+                entradaAEliminar = i;
+                tiempoMaximo = thread->mmu.TLB.entradas[i].contadorTiempo;
+            }
+        }
+
+        thread->mmu.TLB.entradas[entradaAEliminar].paginaVirtual = direccionVirtual;
+        thread->mmu.TLB.entradas[entradaAEliminar].marcoFísico = direccionFisica;
+        thread->mmu.TLB.entradas[entradaAEliminar].contadorTiempo = 0;
+    }
+}
+
 
 // Funcion que traduce una direccion virtual a una direccion fisica
 int traducirDireccionVirtual(int direccionVirtual, Thread *thread){
+    int direccionFisica = -1;
+
+    // Comprobar si la dirección virtual está en la TLB
+    for (int i = 0; i < NUM_ENTRADAS_TLB; i++)
+    {
+        if(thread->mmu.TLB.entradas[i].paginaVirtual == direccionVirtual){  // Si está en la TLB, devolver la dirección física
+            thread->mmu.TLB.entradas[i].contadorTiempo = 0;
+            direccionFisica = thread->mmu.TLB.entradas[i].marcoFísico;
+            printf("HIT de la TLB Direccion fisica: %d\n", direccionFisica);
+            return direccionFisica;
+        }
+    }
     
+    // Si no está en la TLB, coger la dirección física de la tabla de páginas
+    // Y obtener la dirección física correspondiente a la dirección virtual
     int direccionTablaPaginas = *thread->PTBR;
+    direccionFisica = memoriaFisica->memoria[direccionTablaPaginas + direccionVirtual];
+    printf("MISS de la TLB\n");
     printf("Direccion tabla de paginas: %d\n", *thread->PTBR);
-    int direccionFisica = memoriaFisica->memoria[direccionTablaPaginas + direccionVirtual];
     printf("Direccion fisica: %d\n", direccionFisica);
+
+    // Actualizar la TLB
+    actualizarTLB(thread, direccionVirtual, direccionFisica);
+
     return direccionFisica;
 }
 
@@ -179,9 +226,20 @@ void terminarProceso(Thread *thread) {
     thread->PC = 0;
     thread->IR = 0;
     thread->PTBR = NULL;
+
+    // Limpiar registros
     for (int i = 0; i < NUM_REGISTROS; i++) {
         thread->registros[i] = 0;
     }
+    // Limpiar la TLB
+    for (int i = 0; i < NUM_ENTRADAS_TLB; i++)
+    {
+        thread->mmu.TLB.entradas[i].paginaVirtual = 0;
+        thread->mmu.TLB.entradas[i].marcoFísico = 0;
+        thread->mmu.TLB.entradas[i].contadorTiempo = 0;
+    }
+    thread->mmu.TLB.numEntradas = 0;
+
     EliminarDeMemoria(pcb);
 
     // Liberar PCB
@@ -258,11 +316,15 @@ void moverMaquina (void *arg){
                     thread->PC += 1;
                     // Incrementar tiempo de ejecución
                     thread->tEjecucion++;
+                    // Incrementar el contador de tiempo de las entradas de la TLB
+                    for (int i = 0; i < NUM_ENTRADAS_TLB; i++)
+                    {
+                        thread->mmu.TLB.entradas[i].contadorTiempo++;
+                    }
                 }
             }
         }
     }
-
 }
 
 void* reloj(void *arg){
@@ -276,6 +338,8 @@ void* reloj(void *arg){
         done = 0;
         tiempoSistema++;
         moverMaquina(NULL);
+        fusionarHuecosAdyacentes(listaHuecosKernel);
+        fusionarHuecosAdyacentes(listaHuecosUsuario);
         printf("#############################################\n");
         printf("Tiempo del sistema: %d segundos\n", tiempoSistema);
         pthread_cond_broadcast(&cond_timer);

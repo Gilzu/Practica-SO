@@ -9,6 +9,7 @@ void imprimirMemoria();
 void agregarHueco(ListaHuecos *lista, int direccion, int tamano);
 int buscarYActualizarHueco(ListaHuecos *lista, int tamano);
 void imprimirListasHuecos();
+void fusionarHuecosAdyacentes(ListaHuecos *lista);
 
 #endif
 

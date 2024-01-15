@@ -10,6 +10,7 @@
 #include "colasYListaHuecos.h"
 #include "timer.h"
 #include <stdbool.h> 
+#include <getopt.h>
 
 
 // Variables globales
@@ -60,9 +61,12 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
                 for(int l = 0; l < NUM_REGISTROS; l++){
                     machine->cpus[i].cores[j].threads[k].registros[l] = 0;
                 }
-                machine->cpus[i].cores[j].threads[k].mmu.TLB = (TLB *)malloc(sizeof(TLB));
-                machine->cpus[i].cores[j].threads[k].mmu.TLB->numeroPagina = 0;
-                machine->cpus[i].cores[j].threads[k].mmu.TLB->marco = 0;
+                // Inicializar MMU y TLB
+                for(int l = 0; l < NUM_ENTRADAS_TLB; l++){
+                    machine->cpus[i].cores[j].threads[k].mmu.TLB.entradas[l].paginaVirtual = 0;
+                    machine->cpus[i].cores[j].threads[k].mmu.TLB.entradas[l].marcoFísico = 0;
+                    machine->cpus[i].cores[j].threads[k].mmu.TLB.entradas[l].contadorTiempo = 0;
+                }
             }
         }
     }
@@ -103,11 +107,9 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
         priorityQueues[i]->head = NULL;
         priorityQueues[i]->tail = NULL;
         priorityQueues[i]->numProcesos = 0;
-        priorityQueues[i]->quantum = 2*(i+1);
-        priorityQueues[i]->prioridad = i + 1;
+        priorityQueues[i]->quantum = 2*(i+1); // Quantum de 2, 4 y 6 para las colas 1, 2 y 3 respectivamente
+        priorityQueues[i]->prioridad = i + 1; // Prioridad de 1, 2 y 3 para las colas 1, 2 y 3 respectivamente. La cola 1 es la de mayor prioridad y la 3 la de menor prioridad
     }
-
-
 
     // Inicializar variables
     tiempoSistema = 0;
@@ -126,21 +128,53 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
 }
 
 void comprobarArgumentos(int argc, char *argv[]){
-    if (argc != 6)
-    {
-        printf("Error en los argumentos\n");
-        printf("Uso: ./main <numero de CPUs> <numero de cores> <numero de hilos por core> <periodo de ticks de interrupción> <path de la carpeta que contiene los ELF>\n");
-        exit(-1);
-    }
-    if (atoi(argv[1]) < 1 || atoi(argv[2]) < 1 || atoi(argv[3]) < 1 || atoi(argv[4]) < 1)
-    {
-        printf("Error en los argumentos\n");
-        printf("Todos los argumentos deben ser naturales mayores que 0\n");
-        exit(-1);
+    int opt;
+    int cpus = 1, cores = 2, hilos = 2, periodo = 2;
+    char *directorio = NULL;
+
+    // Utilizar getopt para analizar las opciones
+    while ((opt = getopt(argc, argv, "u:c:t:p:d:h")) != -1) {
+        switch (opt) {
+            case 'u':
+                cpus = atoi(optarg);
+                break;
+            case 'c':
+                cores = atoi(optarg);
+                break;
+            case 't':
+                hilos = atoi(optarg);
+                break;
+            case 'p':
+                periodo = atoi(optarg);
+                break;
+            case 'd':
+                directorio = optarg;
+                break;
+            case 'h':
+                printf("Ayuda: Uso del simulador\n");
+                printf("./simulador [OPTIONS]\n");
+                printf(" -u  --cpu=número de CPUs de la máquina [1]\n");
+                printf(" -c, --cores=número de cores de la máquina [2]\n");
+                printf(" -t  --threads=número de hilos de la máquina [2]\n");
+                printf(" -p  --periodo=periodo de ticks del temporizador en segundos [2]\n");
+                printf(" -d  --directorio=directorio en el que se encuentran los ELF\n");
+                printf(" -h  --help=ayuda\n");
+                exit(0);
+            default: // En caso de opción desconocida
+                fprintf(stderr, "Uso: %s -u numCPUs -c numCores -t numThreads -p periodoTicks -d directorioELF\n", argv[0]);
+                exit(1);
+        }
     }
 
-    // Inicializar las estructuras de datos
-    inicializar(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), argv[5]);
+    // Validar argumentos después de getopt
+    if (cpus < 1 || cores < 1 || hilos < 1 || periodo < 1 || directorio == NULL) {
+        fprintf(stderr, "Todos los argumentos deben ser mayores que 0 y el directorio no puede ser NULL\n");
+        exit(1);
+    }
+
+    // Inicializar las estructuras de datos con los valores obtenidos
+    inicializar(cpus, cores, hilos, periodo, directorio);
+
 }
 
 int main(int argc, char *argv[]){
@@ -161,8 +195,9 @@ int main(int argc, char *argv[]){
 
     while (!todosProcesados)
     {
-        // Esperar a que los procesos terminen y a que todos los archivos ELF sean procesados
+        // Esperar a que los elf se carguen y sean procesados
     }
+
     // Finalizar el simulador
     pthread_cancel(hiloClock);
     pthread_cancel(hiloTimer);
@@ -174,6 +209,10 @@ int main(int argc, char *argv[]){
     pthread_join(hiloTimer, NULL);
     pthread_join(hiloScheduler, NULL);
     pthread_join(hiloLoader, NULL);
+
+    // Imprimir el estado final de la máquina
+    imprimirMemoria();
+    imprimirListasHuecos();
 
     // Liberar memoria
     free(machine);
@@ -190,5 +229,6 @@ int main(int argc, char *argv[]){
     printf("#############################################\n");
     printf("Se ha terminado la ejecución del simulador\n");
     printf("#############################################\n");
+
     exit(0);
 }

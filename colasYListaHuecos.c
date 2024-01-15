@@ -86,14 +86,37 @@ void imprimirMemoria(){
 
 // FUNCIONES LISTA HUECOS
 
-// Agrega un nuevo hueco a la lista
+// Agrega un nuevo hueco a la lista ordenado por dirección de inicio
 void agregarHueco(ListaHuecos *lista, int direccionInicio, int tamano) {
-    NodoHueco *nuevoHueco = (NodoHueco *)malloc(sizeof(NodoHueco));
-    nuevoHueco->hueco.direccionInicio = direccionInicio;
-    nuevoHueco->hueco.tamano = tamano;
-    // agregar hueco al principio de la lista
-    nuevoHueco->siguiente = lista->inicio;
-    lista->inicio = nuevoHueco;
+    NodoHueco *nuevo = (NodoHueco *)malloc(sizeof(NodoHueco));
+    nuevo->hueco.direccionInicio = direccionInicio;
+    nuevo->hueco.tamano = tamano;
+    nuevo->siguiente = NULL;
+
+    NodoHueco *actual = lista->inicio;
+    NodoHueco *anterior = NULL;
+
+    while (actual != NULL) {
+        if (actual->hueco.direccionInicio > nuevo->hueco.direccionInicio) {
+            if (anterior == NULL) {
+                nuevo->siguiente = lista->inicio;
+                lista->inicio = nuevo;
+            } else {
+                anterior->siguiente = nuevo;
+                nuevo->siguiente = actual;
+            }
+            break;
+        }
+        anterior = actual;
+        actual = actual->siguiente;
+    }
+    if (actual == NULL) {
+        if (anterior == NULL) {
+            lista->inicio = nuevo;
+        } else {
+            anterior->siguiente = nuevo;
+        }
+    }
 }
 
 // Elimina un hueco de la lista (asumiendo que existe y se encuentra)
@@ -145,27 +168,6 @@ int buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
     return direccionInicio;
 }
 
-/*
-// Elimina un hueco de la lista (asumiendo que existe y se encuentra)
-void eliminarHueco(NodoHueco *hueco, ListaHuecos *lista) {
-    NodoHueco *actual = lista->inicio;
-    NodoHueco *anterior = NULL;
-
-    while (actual != NULL) {
-        if (actual->hueco.direccionInicio == hueco->hueco.direccionInicio) {
-            if (anterior == NULL) {
-                lista->inicio = actual->siguiente;
-            } else {
-                anterior->siguiente = actual->siguiente;
-            }
-            free(actual);
-            break;
-        }
-        anterior = actual;
-        actual = actual->siguiente;
-    }
-}*/
-
 // Imprime las dos listas de huecos
 void imprimirListasHuecos(){
     printf("Lista de huecos de kernel:\n");
@@ -182,8 +184,20 @@ void imprimirListasHuecos(){
     }
 }
 
-// Fusiona huecos adyacentes si es posible (opcional pero recomendado)
+// Fusiona huecos adyacentes si es posible
 void fusionarHuecosAdyacentes(ListaHuecos *lista) {
-    // Implementación depende de tus requisitos específicos
-    // Puede requerir ordenar los huecos por dirección y luego fusionar los adyacentes
+    NodoHueco *actual = lista->inicio;
+    NodoHueco *anterior = NULL;
+    NodoHueco *siguiente = NULL;
+
+    while (actual != NULL) {
+        siguiente = actual->siguiente;
+        if (siguiente != NULL && actual->hueco.direccionInicio + actual->hueco.tamano == siguiente->hueco.direccionInicio) {
+            actual->hueco.tamano += siguiente->hueco.tamano;
+            actual->siguiente = siguiente->siguiente;
+            free(siguiente);
+        } else {
+            actual = actual->siguiente;
+        }
+    }
 }
