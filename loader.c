@@ -71,10 +71,11 @@ void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, int direccionHuecoK
     }
     //memoriaFisica->primeraDireccionLibreKernel += tablaPaginas.numEntradas;  // Actualiza la primera dirección libre del espacio kernel
     pcb->mm.pgb = direccionTablaPaginas;  // Actualiza el puntero a la tabla de páginas
-    printf("PCB mm code: %X\n", *pcb->mm.code);
-    printf("PCB mm data: %x\n", *pcb->mm.data);
+    /*
+    printf("PCB mm code: %d\n", *pcb->mm.code);
+    printf("PCB mm data: %d\n", *pcb->mm.data);
     printf("PCB mm pgb: %d\n", *pcb->mm.pgb);
-    printf("comprobar pgb: %d\n", memoriaFisica->memoria[*pcb->mm.pgb]);
+    printf("comprobar pgb: %d\n", memoriaFisica->memoria[*pcb->mm.pgb]);*/
 }
 
 void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direccionHuecoUsuario, PCB *pcb){
@@ -107,10 +108,12 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direc
         direccionHuecoUsuario += 1;
         tablaPaginas->numEntradas += 1;
         
+        /*
         if (contadorInstrucciones >= *direccionDatos)
             printf("Dato: %d\n", numeroHexadecimal);
         else
             printf("Instrucción: %x\n", numeroHexadecimal);
+        */
 
         contadorInstrucciones += 4;
     }
@@ -265,8 +268,10 @@ void leerDirectorio(char *nombreDirectorio){
                     anadirNombreFichero(entrada->d_name);
                     encolarProceso(pcb, priorityQueues[pcb->prioridad - 1]);
                     printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
-                    imprimirColas();
-                    imprimirMemoria();
+                    //imprimirColas();
+                    //imprimirMemoria();
+                    printf("\n");
+                    printf("HUECOS MEMORIA FÍSICA:\n");
                     imprimirListasHuecos();
                 }
                 ElfProcesado = true;
@@ -288,6 +293,7 @@ void* loader(void *arg){
         // Esperar a que llegue la señal de interrupción del timer
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond_timer, &mutex);
+        printf("**************************************\n");
         leerDirectorio(pathDirectorio);
         pthread_mutex_unlock(&mutex);
     }

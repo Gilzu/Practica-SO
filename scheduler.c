@@ -32,6 +32,8 @@ bool todosHilosLibres(){
 }
 
 void imprimirEstadoHilos(){
+    printf("\n");
+    printf("ESTADO DE LOS HILOS:\n");
     for(int i = 0; i < machine->numCPUs; i++){
         for(int j = 0; j < machine->cpus[i].numCores; j++){
             for(int k = 0; k < machine->cpus[i].cores[j].numThreads; k++){
@@ -88,12 +90,6 @@ void asignarHilo(PCB *pcb){
                     thread->PTBR = thread->pcb->mm.pgb;
                     thread->pcb->estado = 1;
                     thread->estado = 1;
-                    /*
-                    printf("PC del hilo %d del core %d de la CPU %d: %d\n", k, j, i, thread->PC);
-                    printf("pgb del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->pcb->mm.pgb);
-                    printf("data del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->pcb->mm.data);
-                    printf("PTBR del hilo %d del core %d de la CPU %d: %d\n", k, j, i, *thread->PTBR);
-                    */
                     printf("Proceso %d asignado al hilo %d del core %d de la CPU %d\n", pcb->pid, k, j, i);
                     
                     return;
@@ -114,7 +110,8 @@ int interrumpirProcesos(int prioridad){
                 Thread *thread = &machine->cpus[i].cores[j].threads[k];
                 if(thread->estado == 1 && thread->pcb != NULL && thread->pcb->prioridad == prioridad && !hilosDisponibles(NULL)){
                     // Proceso expulsado
-                    printf("Proceso %d INTERRUMPIDO. Scheduler: Reencolado en la cola %d\n", thread->pcb->pid,thread->pcb->prioridad);
+                    printf("Proceso %d del hilo %d del core %d de la CPU %d INTERRUMPIDO. Scheduler: Reencolado en la cola %d\n",
+                    thread->pcb->pid, k, j, i,thread->pcb->prioridad);
                     PCB *pcb = thread->pcb;
                     salvarEstado(pcb, thread);
                     thread->estado = 0;
@@ -173,7 +170,8 @@ void liberarHilos(){
                     if(thread->estado == 1 && thread->pcb != NULL && thread->pcb->prioridad == p + 1){
                         if(thread->tEjecucion == tiempoAEjecutar){
                             // Quantum alcanzado, reencolar
-                            printf("Quantum completado de %d (hilo liberado). Scheduler: Proceso %d reencolado en la cola %d\n",thread->tEjecucion, thread->pcb->pid, thread->pcb->prioridad);
+                            printf("Quantum de %d completado para el hilo %d del core %d de la CPU %d (hilo liberado). Scheduler: Proceso %d reencolado en la cola %d\n",
+                            thread->tEjecucion, k, j, i, thread->pcb->pid, thread->pcb->prioridad);
                             PCB *pcb = thread->pcb;
                             salvarEstado(pcb, thread);
                             thread->estado = 0;
@@ -192,6 +190,8 @@ void liberarHilos(){
 
 
 void roundRobin(void *arg){
+    printf("\n");
+    printf("ASIGNACIÓN PROCESOS:\n");
     if (!hilosDisponibles(NULL)){
         printf("No hay hilos disponibles\n");
         return;
@@ -207,13 +207,14 @@ void roundRobin(void *arg){
         }
         else
         {
-            printf("No hay procesos en la cola %d\n", i+1);
+            //printf("No hay procesos en la cola %d\n", i+1);
             continue;
         }
     }
     if (todosCargados && todosHilosLibres()){
         todosProcesados = true;
     }
+    imprimirColas(NULL);
 }
 
 
@@ -222,10 +223,11 @@ void* scheduler(void *arg){
     {
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond_timer, &mutex);
-        printf("scheduler activado\n");
+        printf("**************************************\n");
+        printf("SCHEDULER ACTIVADO\n");
         liberarHilos();
-        roundRobin(NULL);
         imprimirColas(NULL);
+        roundRobin(NULL);
         imprimirEstadoHilos();
         pthread_mutex_unlock(&mutex);
     }

@@ -58,7 +58,8 @@ PCB* desencolarProceso(Queue *colaProcesos){
 }
 
 void imprimirColas(){
-    printf("Cola de procesos:\n");
+    printf("\n");
+    printf("COLAS DE PROCESOS:\n");
     for(int i = 0; i < 3; i++){
         printf("Cola %d:\n", i+1);
         PCBNode *aux = priorityQueues[i]->head;
@@ -119,26 +120,6 @@ void agregarHueco(ListaHuecos *lista, int direccionInicio, int tamano) {
     }
 }
 
-// Elimina un hueco de la lista (asumiendo que existe y se encuentra)
-void eliminarHueco(NodoHueco *hueco, ListaHuecos *lista) {
-    NodoHueco *actual = lista->inicio;
-    NodoHueco *anterior = NULL;
-
-    while (actual != NULL) {
-        if (actual->hueco.direccionInicio == hueco->hueco.direccionInicio) {
-            if (anterior == NULL) {
-                lista->inicio = actual->siguiente;
-            } else {
-                anterior->siguiente = actual->siguiente;
-            }
-            free(actual);
-            break;
-        }
-        anterior = actual;
-        actual = actual->siguiente;
-    }
-}
-
 // Busca un hueco dado un tamaño y actualiza el nuevo tamaño del hueco si no se utiliza todo el hueco. Si se utiliza todo el hueco, elimina el hueco de la lista
 // Utiliza una política de first-fit
 int buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
@@ -168,22 +149,6 @@ int buscarYActualizarHueco(ListaHuecos *lista, int tamano) {
     return direccionInicio;
 }
 
-// Imprime las dos listas de huecos
-void imprimirListasHuecos(){
-    printf("Lista de huecos de kernel:\n");
-    NodoHueco *aux = listaHuecosKernel->inicio;
-    while(aux != NULL){
-        printf("Hueco: direccionInicio: %d, tamano: %d\n", aux->hueco.direccionInicio, aux->hueco.tamano);
-        aux = aux->siguiente;
-    }
-    printf("Lista de huecos de usuario:\n");
-    aux = listaHuecosUsuario->inicio;
-    while(aux != NULL){
-        printf("Hueco: direccionInicio: %d, tamano: %d\n", aux->hueco.direccionInicio, aux->hueco.tamano);
-        aux = aux->siguiente;
-    }
-}
-
 // Fusiona huecos adyacentes si es posible
 void fusionarHuecosAdyacentes(ListaHuecos *lista) {
     NodoHueco *actual = lista->inicio;
@@ -199,5 +164,25 @@ void fusionarHuecosAdyacentes(ListaHuecos *lista) {
         } else {
             actual = actual->siguiente;
         }
+    }
+}
+
+// Imprime las dos listas de huecos
+void imprimirListasHuecos(){
+    int contadorHuecos = 0;
+    printf("Lista de huecos de kernel:\n");
+    NodoHueco *aux = listaHuecosKernel->inicio;
+    while(aux != NULL){
+        printf("Hueco %d: direccionInicio: %d, tamano: %d\n", contadorHuecos, aux->hueco.direccionInicio, aux->hueco.tamano);
+        aux = aux->siguiente;
+        contadorHuecos++;
+    }
+    contadorHuecos = 0;
+    printf("Lista de huecos de usuario:\n");
+    aux = listaHuecosUsuario->inicio;
+    while(aux != NULL){
+        printf("Hueco %d: direccionInicio: %d, tamano: %d\n", contadorHuecos, aux->hueco.direccionInicio, aux->hueco.tamano);
+        aux = aux->siguiente;
+        contadorHuecos++;
     }
 }

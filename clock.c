@@ -108,7 +108,6 @@ void traducirInstruccion(char *instruccion, char *instruccionFinal){
 }
 
 void actualizarTLB(Thread *thread, int direccionVirtual, int direccionFisica){
-    // Actualizar la TLB
     int numeroEntradasTLB = thread->mmu.TLB.numEntradas;
     if (numeroEntradasTLB < NUM_ENTRADAS_TLB)  // Hay hueco en la TLB, añadir la entrada
     {
@@ -139,14 +138,16 @@ void actualizarTLB(Thread *thread, int direccionVirtual, int direccionFisica){
 // Funcion que traduce una direccion virtual a una direccion fisica
 int traducirDireccionVirtual(int direccionVirtual, Thread *thread){
     int direccionFisica = -1;
+    //printf("Direccion virtual: %X\n", direccionVirtual);
+    direccionVirtual = direccionVirtual / 4; // Dividir entre 4 para obtener el número de página
 
     // Comprobar si la dirección virtual está en la TLB
     for (int i = 0; i < NUM_ENTRADAS_TLB; i++)
     {
-        if(thread->mmu.TLB.entradas[i].paginaVirtual == direccionVirtual){  // Si está en la TLB, devolver la dirección física
+        if(thread->mmu.TLB.entradas[i].paginaVirtual == direccionVirtual){  // Está en la TLB, devolver la dirección física
             thread->mmu.TLB.entradas[i].contadorTiempo = 0;
             direccionFisica = thread->mmu.TLB.entradas[i].marcoFísico;
-            printf("HIT de la TLB Direccion fisica: %d\n", direccionFisica);
+            printf("HIT de la TLB, Direccion fisica: %d\n", direccionFisica);
             return direccionFisica;
         }
     }
@@ -155,9 +156,7 @@ int traducirDireccionVirtual(int direccionVirtual, Thread *thread){
     // Y obtener la dirección física correspondiente a la dirección virtual
     int direccionTablaPaginas = *thread->PTBR;
     direccionFisica = memoriaFisica->memoria[direccionTablaPaginas + direccionVirtual];
-    printf("MISS de la TLB\n");
-    printf("Direccion tabla de paginas: %d\n", *thread->PTBR);
-    printf("Direccion fisica: %d\n", direccionFisica);
+    printf("MISS de la TLB, la dirección física se obtiene de memoria\n");
 
     // Actualizar la TLB
     actualizarTLB(thread, direccionVirtual, direccionFisica);
@@ -165,21 +164,38 @@ int traducirDireccionVirtual(int direccionVirtual, Thread *thread){
     return direccionFisica;
 }
 
+// Esta función se llamará cuando se realice una operación de st, ld o add
+// e imprimirá el segmento de datos, que se encuentra en memoria física, correspondiente al proceso que se está ejecutando
+// con el fin de comprobar un correcto funcionamiento.
+void volcarSegmentoDatos(Thread* thread){
+    int direccionTablaPaginas = *thread->PTBR;
+    int numeroDatos = thread->pcb->tamanoProceso - ((*thread->pcb->mm.data - *thread->pcb->mm.code) / 4);
+    int direccionInicioDatos = *thread->pcb->mm.data;
+    int direccionFisicaInicioDatos = memoriaFisica->memoria[direccionTablaPaginas + (direccionInicioDatos / 4)];
+    printf("Segmento de datos del proceso %d:\n", thread->pcb->pid);
+    for(int i = 0; i < numeroDatos; i++){
+        printf("%d: %d\n", memoriaFisica->memoria[direccionTablaPaginas + (direccionInicioDatos / 4) + i], 
+        memoriaFisica->memoria[direccionFisicaInicioDatos + i]);
+    }
+}
+
 void cargarRegistroDesdeDireccion(Thread *thread, char *registro, char *direccion) {
-    int direccionVirtual = strtol(direccion, NULL, 16) / 4;
+    int direccionVirtual = strtol(direccion, NULL, 16);
     int direccionFisica = traducirDireccionVirtual(direccionVirtual, thread);
     int valor = memoriaFisica->memoria[direccionFisica];
     int registroInt = atoi(registro);
     thread->registros[registroInt] = valor;
-    printf("Registro %d cargado con el valor %d en la direccion física %d\n", registroInt, valor, direccionFisica);
+    printf("Registro %d cargado con el valor %d de la direccion física %d\n", registroInt, valor, direccionFisica);
+    volcarSegmentoDatos(thread);
 }
 
 void guardarValorEnDireccion(Thread *thread, char *registro, char *direccion) {
-    int direccionVirtual = strtol(direccion, NULL, 16) / 4;
+    int direccionVirtual = strtol(direccion, NULL, 16);
     int direccionFisica = traducirDireccionVirtual(direccionVirtual, thread);
     int valor = thread->registros[atoi(registro)];
     memoriaFisica->memoria[direccionFisica] = valor;
     printf("Valor %d guardado en la dirección %d\n", valor, direccionFisica);
+    volcarSegmentoDatos(thread);
 }
 
 void realizarSuma(Thread *thread, char *rd, char *rs1, char *rs2) {
@@ -187,7 +203,8 @@ void realizarSuma(Thread *thread, char *rd, char *rs1, char *rs2) {
     int valorSumando2 = thread->registros[atoi(rs2)];
     int valorDestino = valorSumando1 + valorSumando2;
     thread->registros[atoi(rd)] = valorDestino;
-    printf("Suma de %d y %d guardada en el registro %d\n", valorSumando1, valorSumando2, atoi(rd));
+    printf("Suma de %d y %d = %d guardada en el registro %d\n", valorSumando1, valorSumando2, valorSumando1 + valorSumando2, atoi(rd));
+    volcarSegmentoDatos(thread);
 }
 
 void EliminarDeMemoria(PCB *pcb){
@@ -212,10 +229,13 @@ void EliminarDeMemoria(PCB *pcb){
     // Añadir hueco a la lista de huecos de kernel
     agregarHueco(listaHuecosKernel, direccionTablaPaginas, tamano);
 
-    // Imprimir memoria y listas de huecos
-    imprimirMemoria();
+    // Imprimir listas de huecos
+    printf("\n");
+    printf("HUECOS MEMORIA FÍSICA:\n");
     imprimirListasHuecos();
 }
+
+
 
 void terminarProceso(Thread *thread) {
     printf("Proceso %d terminado\n", thread->pcb->pid);
@@ -281,7 +301,7 @@ void rellenarCon0(char *cadena, int numCeros) {
 }
 
 
-void moverMaquina (void *arg){
+void moverMaquina (){
     // Actualiza todos los tiempos de los procesos en ejecución
     for(int i = 0; i < machine->numCPUs; i++){
         for(int j = 0; j < machine->cpus[i].numCores; j++){
@@ -305,9 +325,11 @@ void moverMaquina (void *arg){
                         // Rellenar con ceros a la izquierda hasta que la instrucción tenga 8 caracteres
                         rellenarCon0(instruccionCadena, 8 - strlen(instruccionCadena));
                     }
-                    printf("Instrucción: %s\n", instruccionCadena);
                     traducirInstruccion(instruccionCadena, resultado);
-                    printf("El hilo %d del core %d de la CPU %d va a ejecutar la instrucción %s\n", k, j, i, resultado);
+                    printf("\n");
+                    printf("**************************************\n");
+                    printf("EJECUCIÓN DEl HILO %d CORE: %d CPU:%d\n", k, j, i);
+                    printf("Ocupado con el proceso %d va a ejecutar la instrucción %s\n", thread->pcb->pid, resultado);
                     bool continuarEjecucion = ejecutarInstruccion(resultado, thread);
                     if(!continuarEjecucion){
                         continue;
@@ -337,10 +359,10 @@ void* reloj(void *arg){
         }
         done = 0;
         tiempoSistema++;
-        moverMaquina(NULL);
+        moverMaquina();
         fusionarHuecosAdyacentes(listaHuecosKernel);
         fusionarHuecosAdyacentes(listaHuecosUsuario);
-        printf("#############################################\n");
+        printf("#######################################################################################################################\n");
         printf("Tiempo del sistema: %d segundos\n", tiempoSistema);
         pthread_cond_broadcast(&cond_timer);
         pthread_mutex_unlock(&mutex);

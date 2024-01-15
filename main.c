@@ -118,13 +118,11 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
 
     // Periodo de tick del timer
     periodoTimer = periodo;
-    printf("#############################################\n");
     printf("Se ha inicializado la máquina con los siguientes parámetros\n");
     printf("Número de CPUs: %d\n", numCPUs);
     printf("Número de cores: %d\n", numCores);
     printf("Número de hilos por core: %d\n", numHilos);
     printf("Periodo de ticks de interrupción del temporizador: %d\n", periodo);
-    printf("#############################################\n");
 }
 
 void comprobarArgumentos(int argc, char *argv[]){
@@ -211,6 +209,8 @@ int main(int argc, char *argv[]){
     pthread_join(hiloLoader, NULL);
 
     // Imprimir el estado final de la máquina
+    printf("\n");
+    printf("ESTADO FINAL DE LA MÁQUINA:\n");
     imprimirMemoria();
     imprimirListasHuecos();
 
@@ -226,9 +226,9 @@ int main(int argc, char *argv[]){
     pthread_cond_destroy(&cond_clock);
     pthread_cond_destroy(&cond_timer);
 
-    printf("#############################################\n");
-    printf("Se ha terminado la ejecución del simulador\n");
-    printf("#############################################\n");
+    printf("\n");
+    printf("LA EJECUCIÓN DEL SIMULADOR HA TERMINADO\n");
+    printf("\n");
 
     exit(0);
 }
