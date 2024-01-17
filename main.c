@@ -12,6 +12,16 @@
 #include <stdbool.h> 
 #include <getopt.h>
 
+// Opciones de la línea de comandos
+struct option long_options[] = {
+    {"cpu", required_argument, 0, 'u'},
+    {"cores", required_argument, 0, 'c'},
+    {"threads", required_argument, 0, 't'},
+    {"periodo", required_argument, 0, 'p'},
+    {"directorio", required_argument, 0, 'd'},
+    {"help", no_argument, 0, 'h'},
+    {0, 0, 0, 0}
+};
 
 // Variables globales
 Machine *machine;
@@ -30,6 +40,15 @@ bool todosCargados = false;
 bool todosProcesados = false;
 
 
+/**
+ * Inicializa las estructuras necesarias para el simulador con los parámetros especificados.
+ * 
+ * @param numCPUs   El número de CPUs en la máquina.
+ * @param numCores  El número de cores por CPU.
+ * @param numHilos  El número de hilos por core.
+ * @param periodo   El periodo de ejecución de interrupción del timer.
+ * @param path      La ruta del archivo de los ELF.
+ */
 void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *path){
     // Inicializar mutex y variables de condición
     pthread_mutex_init(&mutex, NULL);
@@ -71,7 +90,7 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
         }
     }
 
-    // Inicializar memeoria y reservar espacio para espacio Kernel y tabla de páginas
+    // Inicializar memoria 
     memoriaFisica = (MemoriaFisica *)malloc(sizeof(MemoriaFisica));
     for (int i = 0; i < (TAM_MEMORIA / 4); i++)
     {
@@ -84,7 +103,6 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
     {
         memoriaFisica->memoria[i] = 1;
     }
-
     
     // Inicializar lista de huecos de usuario con un hueco que ocupe todo el espacio de usuario
     listaHuecosUsuario = (ListaHuecos *)malloc(sizeof(ListaHuecos));
@@ -125,13 +143,20 @@ void inicializar(int numCPUs, int numCores, int numHilos, int periodo, char *pat
     printf("Periodo de ticks de interrupción del temporizador: %d\n", periodo);
 }
 
+/**
+ * Comprueba los argumentos pasados por línea de comandos y los inicializa en las estructuras de datos correspondientes.
+ * 
+ * @param argc El número de argumentos pasados por línea de comandos.
+ * @param argv Un array de cadenas que contiene los argumentos pasados por línea de comandos.
+ */
 void comprobarArgumentos(int argc, char *argv[]){
     int opt;
+    int option_index = 0;    
     int cpus = 1, cores = 2, hilos = 2, periodo = 2;
     char *directorio = NULL;
 
-    // Utilizar getopt para analizar las opciones
-    while ((opt = getopt(argc, argv, "u:c:t:p:d:h")) != -1) {
+    // Se utiliza getopt para analizar las opciones
+    while ((opt = getopt_long(argc, argv, "u:c:t:p:d:h", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'u':
                 cpus = atoi(optarg);
@@ -164,7 +189,7 @@ void comprobarArgumentos(int argc, char *argv[]){
         }
     }
 
-    // Validar argumentos después de getopt
+    // Validar argumentos
     if (cpus < 1 || cores < 1 || hilos < 1 || periodo < 1 || directorio == NULL) {
         fprintf(stderr, "Todos los argumentos deben ser mayores que 0 y el directorio no puede ser NULL\n");
         exit(1);
@@ -172,7 +197,6 @@ void comprobarArgumentos(int argc, char *argv[]){
 
     // Inicializar las estructuras de datos con los valores obtenidos
     inicializar(cpus, cores, hilos, periodo, directorio);
-
 }
 
 int main(int argc, char *argv[]){

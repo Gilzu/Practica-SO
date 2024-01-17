@@ -11,10 +11,14 @@ extern int done;
 extern int periodoTimer;
 
 
+/**
+ * Función que representa el hilo del temporizador.
+ * Incrementa la variable 'done' y avisa al hilo del reloj.
+ * Finalmente, duerme durante el periodo de tiempo especificado.
+ *
+ * @return No devuelve ningún valor.
+ */
 void* timer(void *arg){
-
-    
-    
     while (1)
     {
         pthread_mutex_lock(&mutex);

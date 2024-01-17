@@ -21,6 +21,11 @@ extern char* pathDirectorio;
 char *nombresFicheros[NUM_ELF_MAX];
 extern bool todosCargados;
 
+/**
+ * Crea un PCB (Process Control Block) nuevo.
+ * 
+ * @return Puntero al PCB creado.
+ */
 PCB* crearPCB() {
     PCB *pcb = (PCB *)malloc(sizeof(PCB));
     pcb->pid = rand() % 100 + 1;
@@ -36,6 +41,11 @@ PCB* crearPCB() {
     return pcb;
 }
 
+/**
+ * Crea una tabla de páginas nueva.
+ * 
+ * @return Tabla de páginas creada.
+ */
 TablaPaginas crearTablaPaginas() {
     TablaPaginas tablaPaginas;
     tablaPaginas.numEntradas = 0;
@@ -46,15 +56,22 @@ TablaPaginas crearTablaPaginas() {
 }
 
 
-// Devuelve el número de instrucciones que hay en el fichero y por tanto el número de palabras que se necesitan libres
+/**
+ * Comprueba el tamaño de un fichero.
+ * 
+ * Esta función lee el contenido de un fichero línea por línea y cuenta el número de instrucciones presentes en él.
+ * Ignora las líneas que comienzan con un punto (.) ya que corresponden a las direcciones virtuales de los segmentos de código y datos.
+ * 
+ * @param fichero El puntero al fichero que se desea comprobar.
+ * @return El número de instrucciones presentes en el fichero.
+ */
 int comprobarTamanoFichero(FILE *fichero){
-    // Leer el fichero
     char *linea = NULL;
     size_t len = 0;
     int instrucciones = 0;
     while (getline(&linea, &len, fichero) != -1)
     {
-        // Ignorar las líneas que empiezan por .algo ya que son las direcciones virtuales de los segmentos de código y datos
+        
         if(linea[0] == '.')
             continue;
         instrucciones++;
@@ -63,26 +80,39 @@ int comprobarTamanoFichero(FILE *fichero){
     return instrucciones;
 }
 
+/**
+ * Guarda la tabla de páginas en la memoria física.
+ * 
+ * Esta función toma una tabla de páginas, una dirección de hueco en el kernel y un PCB como parámetros.
+ * Crea un espacio de memoria para almacenar la dirección de la tabla de páginas y guarda cada entrada de la tabla
+ * en la memoria física a partir de la dirección de hueco en el kernel.
+ * Actualiza el puntero a la tabla de páginas en el PCB.
+ *
+ * @param tablaPaginas La tabla de páginas a guardar en la memoria física.
+ * @param direccionHuecoKernel La dirección de hueco en el kernel donde se almacenará la tabla de páginas.
+ * @param pcb El PCB al que se actualizará el puntero a la tabla de páginas.
+ */
 void guardarTablaPaginasEnMemoria(TablaPaginas tablaPaginas, int direccionHuecoKernel, PCB *pcb) {
     int *direccionTablaPaginas = malloc(sizeof(int));
     *direccionTablaPaginas = direccionHuecoKernel;
     for (int i = 0; i < tablaPaginas.numEntradas; i++) {
         memoriaFisica->memoria[*direccionTablaPaginas + i] = tablaPaginas.TablaDePaginas[i];
     }
-    //memoriaFisica->primeraDireccionLibreKernel += tablaPaginas.numEntradas;  // Actualiza la primera dirección libre del espacio kernel
-    pcb->mm.pgb = direccionTablaPaginas;  // Actualiza el puntero a la tabla de páginas
-    /*
-    printf("PCB mm code: %d\n", *pcb->mm.code);
-    printf("PCB mm data: %d\n", *pcb->mm.data);
-    printf("PCB mm pgb: %d\n", *pcb->mm.pgb);
-    printf("comprobar pgb: %d\n", memoriaFisica->memoria[*pcb->mm.pgb]);*/
+    pcb->mm.pgb = direccionTablaPaginas;
 }
 
+/**
+ * Carga un proceso en memoria a partir de un archivo.
+ * 
+ * @param fichero El archivo que contiene las instrucciones y datos del proceso.
+ * @param tablaPaginas La tabla de páginas del proceso.
+ * @param direccionHuecoUsuario La dirección inicial del hueco de usuario en memoria.
+ * @param pcb El PCB (Control Block Process) del proceso.
+ */
 void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direccionHuecoUsuario, PCB *pcb){
 
     int *direccionInstrucciones = malloc(sizeof(int));
     int *direccionDatos = malloc(sizeof(int));
-    int contadorInstrucciones = 0;
 
     char *linea = NULL;
     size_t len = 0;
@@ -99,7 +129,9 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direc
 
     int numeroHexadecimal;
     while(getline(&linea, &len, fichero) != -1){
+
         sscanf(linea, "%x", &numeroHexadecimal);
+
         // Guardar la instrucción o dato en memoria y guardar en la tabla de páginas
         memoriaFisica->memoria[direccionHuecoUsuario] = numeroHexadecimal;
         tablaPaginas->TablaDePaginas[tablaPaginas->numEntradas] = direccionHuecoUsuario;
@@ -107,15 +139,6 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direc
         // Actualizar la dirección del hueco de usuario y el número de entradas de la tabla de páginas
         direccionHuecoUsuario += 1;
         tablaPaginas->numEntradas += 1;
-        
-        /*
-        if (contadorInstrucciones >= *direccionDatos)
-            printf("Dato: %d\n", numeroHexadecimal);
-        else
-            printf("Instrucción: %x\n", numeroHexadecimal);
-        */
-
-        contadorInstrucciones += 4;
     }
     pcb->tamanoProceso = tablaPaginas->numEntradas;
 
@@ -123,6 +146,19 @@ void cargarProcesoEnMemoria(FILE *fichero, TablaPaginas *tablaPaginas, int direc
     free(linea);
 }
 
+/**
+ * ProcesarELF: Carga un archivo ELF en memoria y guarda la tabla de páginas.
+ * 
+ * Esta función lee un archivo ELF desde un puntero a FILE y carga el proceso en memoria,
+ * guardando la tabla de páginas en la dirección de memoria especificada por el hueco en el kernel.
+ * Si hay suficiente espacio tanto en el kernel como en el espacio de usuario, el proceso se carga
+ * correctamente y se devuelve true. En caso contrario, se muestra un mensaje de error y se devuelve false.
+ * 
+ * @param fichero Puntero al archivo ELF a procesar.
+ * @param pcb Puntero a la estructura PCB del proceso.
+ * @param tablaPaginas Tabla de páginas del proceso.
+ * @return true si el proceso se carga correctamente, false en caso contrario.
+ */
 bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
 
@@ -138,10 +174,11 @@ bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
     int tamanoProceso = comprobarTamanoFichero(fichero);
     rewind(fichero);
+    
     // El tamaño de la tabla de páginas será igual al número de instrucciones del fichero ya que cada instrucción ocupa 4B (una palabra)
     tamanoTablaPaginas = tamanoProceso;
-    // Comprobar si hay un hueco suficientemente grande en la lista de huecos de kernel y lista de huecos de usuario
 
+    // Comprobar si hay un hueco suficientemente grande en la lista de huecos de kernel y lista de huecos de usuario
     direccionHuecoKernel = buscarYActualizarHueco(listaHuecosKernel, tamanoTablaPaginas);
     direccionHuecoUsuario = buscarYActualizarHueco(listaHuecosUsuario, tamanoProceso);
 
@@ -150,7 +187,8 @@ bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
         guardarTablaPaginasEnMemoria(tablaPaginas, direccionHuecoKernel, pcb);
         procesoCargado = true;
     }else{
-        printf("Loader: No hay hueco suficientemente grande para el proceso %d en el kernel o en la zona de usuario \n", pcb->pid);
+        printf("Loader: No hay hueco suficientemente grande para el proceso en el kernel o en la zona de usuario \n");
+        
     }
 
     return procesoCargado;
@@ -158,7 +196,12 @@ bool ProcesarELF(FILE *fichero, PCB* pcb, TablaPaginas tablaPaginas){
 
 
 
-// Está función se encarga de leer los programas ELF de un fichero de texto y cargarlos en memoria
+/**
+ * Esta función se encarga de leer los programas ELF de un fichero de texto y cargarlos en memoria.
+ * 
+ * @param nombreFichero El nombre del fichero que contiene el programa ELF.
+ * @return Un puntero al PCB (Control Block Process) del programa cargado en memoria, o NULL si ocurrió un error.
+ */
 PCB* leerProgramaELF(char *nombreFichero){
 
     bool procesoCargado = false;
@@ -229,7 +272,11 @@ bool ficheroProcesado(char *nombreFichero){
     return false;
 }
 
-// Función que se encarga de leer los ficheros ELF de un directorio y cargarlos en memoria
+/**
+ * Función que se encarga de leer los ficheros ELF de un directorio y cargarlos en memoria.
+ * 
+ * @param nombreDirectorio El nombre del directorio que contiene los ficheros ELF.
+ */
 void leerDirectorio(char *nombreDirectorio){
     DIR *directorio;
     struct dirent *entrada;
@@ -254,22 +301,21 @@ void leerDirectorio(char *nombreDirectorio){
 
             // Comprobar si hay espacio en el array de nombres de ficheros
             hayEspacioArray = comprobarEspacioFichero();
-
+            if(!hayEspacioArray)
+                break;
             // Comprobar si es un fichero ELF
             if (esFicheroELF(ruta) && !ficheroProcesado(entrada->d_name) && hayEspacioArray){
                 // Leer el fichero ELF
                 printf("Loader: Leyendo fichero ELF %s\n", entrada->d_name);
                 PCB *pcb = leerProgramaELF(ruta);
                 if (pcb == NULL){
-                    printf("Loader: No se ha podido cargar el proceso %d\n", pcb->pid);
+                    printf("Loader: No se ha podido cargar el proceso\n");
                     ElfProcesado = true;
                     break;
                 }else{ // Si se ha podido cargar el proceso, encolarlo en la cola de prioridad correspondiente y añadir el nombre del fichero al array
                     anadirNombreFichero(entrada->d_name);
                     encolarProceso(pcb, priorityQueues[pcb->prioridad - 1]);
                     printf("Loader: Proceso %d encolado en la cola %d\n", pcb->pid, pcb->prioridad);
-                    //imprimirColas();
-                    //imprimirMemoria();
                     printf("\n");
                     printf("HUECOS MEMORIA FÍSICA:\n");
                     imprimirListasHuecos();
@@ -287,6 +333,12 @@ void leerDirectorio(char *nombreDirectorio){
     closedir(directorio);
 }
 
+/**
+ * Función que se ejecuta en un hilo para cargar ficheros ELF.
+ * Espera a que llegue una señal de interrupción del temporizador y luego lee el directorio especificado.
+ * 
+ * @return No devuelve ningún valor.
+ */
 void* loader(void *arg){
     while (!todosCargados)
     {

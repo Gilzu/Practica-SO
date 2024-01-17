@@ -1,10 +1,10 @@
 #ifndef ESTRUCTURAS_H
 #define ESTRUCTURAS_H
-#define TAM_MEMORIA 16384
-#define TAM_KERNEL 4096
+#define TAM_MEMORIA 16384 // tamaño de la memoria en Bytes
+#define TAM_KERNEL 4096 // tamaño del kernel en Bytes
 #define NUM_ENTRADAS_TABLAPAGINAS 64 // el valor teórico serían 2^22 entradas, pero para simplificar se ha puesto 64 ya que un proceso nunca ocupará las 2^22 entradas
 #define NUM_REGISTROS 16
-#define NUM_ENTRADAS_TLB 4
+#define NUM_ENTRADAS_TLB 4 
 
 // MM
 typedef struct MM {
@@ -15,15 +15,15 @@ typedef struct MM {
 
 // PCB
 typedef struct PCB {
-    int pid;
-    int estado; // 0: listo, 1: ejecutando, 2: interrumpido(Quantum o expulsado)
-    int tiempoEjecucion;
-    int prioridad;
-    int tamanoProceso;
-    MM mm;
-    // campos para salvar el estado de la ejecución
-    int PC;
-    int registros[NUM_REGISTROS];
+    int pid;                    // Process ID
+    int estado;                 // Estado del proceso (0: listo, 1: ejecutando, 2: interrumpido)
+    int tiempoEjecucion;        // Tiempo de ejecución del proceso
+    int prioridad;              // Prioridad del proceso
+    int tamanoProceso;          // Tamaño del proceso
+    MM mm;                      // Estructura de gestión de memoria del proceso
+    int PC;                     // Program Counter (contador de programa para salvar el estado del proceso)
+    int registros[NUM_REGISTROS];   // Registros del proceso (para salvar el estado de ejecución del proceso)
+
 } PCB;
 
 // PCBNode
@@ -32,16 +32,16 @@ typedef struct PCBNode {
     struct PCBNode *sig;
 } PCBNode;
 
-// Process queue
+// Estructura de cola de procesos
 typedef struct Queue {
-    PCBNode *head;
-    PCBNode *tail;
-    int numProcesos;
-    int quantum;
-    int prioridad;
+    PCBNode *head;      // Puntero al primer nodo de la cola
+    PCBNode *tail;      // Puntero al último nodo de la cola
+    int numProcesos;    // Número de procesos en la cola
+    int quantum;        // Quantum asignado a la cola
+    int prioridad;      // Prioridad de la cola
 } Queue;
 
-// entrada de TLB
+// Entrada de TLB
 typedef struct TLBentrada {
     int paginaVirtual; // la dirección virtual de la página
     int marcoFísico; // el correspondiente marco físico
@@ -50,8 +50,8 @@ typedef struct TLBentrada {
 
 // TLB
 typedef struct TLB {
-    TLBentrada entradas[NUM_ENTRADAS_TLB];
-    int numEntradas;
+    TLBentrada entradas[NUM_ENTRADAS_TLB]; // Array de entradas de la TLB
+    int numEntradas; // Número de entradas ocupadas actualmente en la TLB
 } TLB;
 
 // MMU
@@ -61,15 +61,15 @@ typedef struct MMU {
 
 // Thread
 typedef struct Thread{
-    PCB *pcb;
-    int tid;
-    int estado; // 0: ocioso, 1: ejecutando
-    int tEjecucion;
-    int PC;
-    int IR;
-    int *PTBR;
-    MMU mmu;
-    int registros[NUM_REGISTROS];
+    PCB *pcb;                   // Puntero al Bloque de Control de Proceso asociado al hilo
+    int tid;                    // Identificador único del hilo
+    int estado;                 // Estado del hilo (0: ocioso, 1: ejecutando)
+    int tEjecucion;             // Tiempo de ejecución del hilo
+    int PC;                     // Contador de programa del hilo
+    int IR;                     // Registro de instrucción actual del hilo
+    int *PTBR;                  // Puntero a la Tabla de Páginas Base del hilo
+    MMU mmu;                    // Unidad de Gestión de Memoria del hilo
+    int registros[NUM_REGISTROS];   // Registros del hilo
 } Thread;
 
 // Core
@@ -97,7 +97,7 @@ typedef struct TablaPaginas {
 } TablaPaginas;
 
 // Memoria física
-// Cada elemento del array simulará una "palabra" de memoria
+// Cada elemento del array simulará una palabra de memoria
 typedef struct MemoriaFisica {
     int memoria[TAM_MEMORIA / 4]; // 16384B totales / 4B por palabra = 4096 palabras, es decir, 4096 elementos en el array
 } MemoriaFisica;
@@ -105,7 +105,7 @@ typedef struct MemoriaFisica {
 // Estructura para representar un hueco en la memoria
 typedef struct Hueco {
     int direccionInicio; // Dirección de inicio del hueco
-    int tamano;          // Tamaño del hueco
+    int tamano;          // Tamaño del hueco en palabras
 } Hueco;
 
 // Nodo de la lista enlazada para los huecos
@@ -118,6 +118,7 @@ typedef struct NodoHueco {
 typedef struct ListaHuecos {
     NodoHueco *inicio;
 } ListaHuecos;
+
 
 #endif // ESTRUCTURAS_H
 

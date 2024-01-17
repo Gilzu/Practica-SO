@@ -18,6 +18,11 @@ extern bool todosCargados;
 extern bool todosProcesados;
 
 
+/**
+ * Verifica si todos los hilos están libres.
+ * 
+ * @return true si todos los hilos están libres, false en caso contrario.
+ */
 bool todosHilosLibres(){
     for(int i = 0; i < machine->numCPUs; i++){
         for(int j = 0; j < machine->cpus[i].numCores; j++){
@@ -31,6 +36,10 @@ bool todosHilosLibres(){
     return true;
 }
 
+/**
+ * Imprime el estado de los hilos en el sistema.
+ * Muestra si cada hilo está ocupado por un proceso o está libre.
+ */
 void imprimirEstadoHilos(){
     printf("\n");
     printf("ESTADO DE LOS HILOS:\n");
@@ -48,6 +57,11 @@ void imprimirEstadoHilos(){
     }
 }
 
+/**
+ * Verifica si hay hilos disponibles en la máquina.
+ * 
+ * @return true si hay hilos disponibles, false en caso contrario.
+ */
 bool hilosDisponibles(void *arg){
     for(int i = 0; i < machine->numCPUs; i++){
         for(int j = 0; j < machine->cpus[i].numCores; j++){
@@ -61,17 +75,40 @@ bool hilosDisponibles(void *arg){
     return false;
 }
 
+/**
+ * Guarda el estado de una PCB y a partir de un Thread.
+ * 
+ * Esta función copia el valor del contador de programa (PC) y los registros
+ * del hilo especificado al PCB.
+ * 
+ * @param pcb Puntero a la estructura PCB.
+ * @param thread Puntero a la estructura Thread.
+ */
 void salvarEstado(PCB *pcb, Thread *thread) {
     pcb->PC = thread->PC;
     memcpy(pcb->registros, thread->registros, sizeof(int) * NUM_REGISTROS);
 }
 
+/**
+ * Restaura el estado de un hilo a partir de un PCB.
+ *
+ * Esta función copia el valor del contador de programa (PC) y los registros
+ * del PCB al hilo especificado.
+ *
+ * @param pcb El PCB del proceso del cual se desea restaurar el estado.
+ * @param thread El hilo al cual se desea restaurar el estado.
+ */
 void restaurarEstado(PCB *pcb, Thread *thread) {
     thread->PC = pcb->PC;
     memcpy(thread->registros, pcb->registros, sizeof(int) * NUM_REGISTROS);
 }
 
 
+/**
+ * Asigna un PCB a un hilo disponible en la máquina.
+ * 
+ * @param pcb El PCB que se va a asignar.
+ */
 void asignarHilo(PCB *pcb){
     // Asignar el proceso al primer hilo con estado 0 que se encuentre
     for(int i = 0; i < machine->numCPUs; i++){
@@ -99,6 +136,12 @@ void asignarHilo(PCB *pcb){
     }
 }
 
+/**
+ * Interrumpe los procesos con la prioridad especificada y los reencola en la cola correspondiente del scheduler.
+ * 
+ * @param prioridad La prioridad de los procesos a interrumpir.
+ * @return El número de procesos interrumpidos.
+ */
 int interrumpirProcesos(int prioridad){
     int procesosInterrumpidos = 0;
     for (int i = 0; i < machine->numCPUs; i++)
@@ -127,6 +170,12 @@ int interrumpirProcesos(int prioridad){
     return procesosInterrumpidos;
 }
 
+/**
+ * Comprueba si existen hilos ocupados por procesos de menor prioridad.
+ * 
+ * @param prioridad La prioridad mínima requerida para considerar un hilo como de menor prioridad.
+ * @return true si hay hilos ocupados por procesos de menor prioridad, false de lo contrario.
+ */
 bool hilosConProcesosMenorPrioridad(int prioridad){
     for (int i = 0; i < machine->numCPUs; i++)
     {
@@ -144,6 +193,13 @@ bool hilosConProcesosMenorPrioridad(int prioridad){
     return false;
 }
 
+/**
+ * Comprueba si es necesario interrumpir hilos en las colas de prioridad.
+ * Si hay procesos en la cola de prioridad más alta y no hay hilos disponibles pero hay hilos ocupados por procesos de menor prioridad,
+ * entonces se interrumpen los hilos en las colas de prioridad más baja para que se ejecuten los procesos de la cola de prioridad más alta.
+ * 
+ * @return void
+ */
 void comprobarInterrupcionHilos(){
     while(priorityQueues[0]->numProcesos > 0 && !hilosDisponibles(NULL) && hilosConProcesosMenorPrioridad(priorityQueues[0]->prioridad)){
         int interrumpidosMenorPrioridad = interrumpirProcesos(priorityQueues[2]->prioridad);
@@ -157,6 +213,13 @@ void comprobarInterrupcionHilos(){
     }
 }
 
+/**
+ * Libera los hilos que han alcanzado su quantum de ejecución.
+ * Verifica si hay hilos que deben ser interrumpidos.
+ * Recorre todas las colas de prioridad y verifica si algún hilo ha alcanzado su quantum.
+ * Si un hilo ha alcanzado su quantum, lo reencola en la cola correspondiente.
+ * Actualiza el estado de los hilos y procesos según corresponda.
+ */
 void liberarHilos(){
     comprobarInterrupcionHilos();
 
@@ -189,6 +252,12 @@ void liberarHilos(){
 }
 
 
+/**
+ * Planificador Round Robin
+ * Esta función implementa la política multinivel Round Robin para asignar procesos a los hilos
+ * disponibles en función de sus prioridades. Además, verifica si se han cargado y procesado todos
+ * los ficheros ELF para finalizar la ejecución del simulador.
+ */
 void roundRobin(void *arg){
     printf("\n");
     printf("ASIGNACIÓN PROCESOS:\n");
@@ -218,6 +287,11 @@ void roundRobin(void *arg){
 }
 
 
+/**
+ * Función encargada de la planificación de los hilos y procesos en ejecución.
+
+ * @return No retorna ningún valor.
+ */
 void* scheduler(void *arg){
     while (!todosProcesados)
     {
